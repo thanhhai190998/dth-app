@@ -262,6 +262,39 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
 .lightbox { position: fixed; inset: 0; z-index: 60; background: #000e; display: flex; align-items: center; justify-content: center; color: #fff; cursor: zoom-out; }
 .lightbox img { max-width: 100%; max-height: 100%; }
 
+/* ---- Form mới ---- */
+.fwrap { display: grid; gap: 0; }
+.fwrap .card.form { border-radius: 16px; }
+.fsec { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.fsec .gic { width: 28px; height: 28px; border-radius: 9px; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.segb { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; min-height: 40px; border-radius: 11px; cursor: pointer;
+  color: var(--text); background: var(--card); border: 1px solid var(--line); text-align: left; }
+.segb:hover { border-color: color-mix(in srgb, var(--pri) 50%, var(--line)); }
+.segb.on { background: color-mix(in srgb, var(--pri) 14%, transparent); border-color: var(--pri); color: var(--pri); }
+.qd { flex: none; font: inherit; font-size: 13px; font-weight: 600; padding: 0 12px; min-height: 42px; border-radius: 10px; cursor: pointer;
+  color: var(--pri); background: color-mix(in srgb, var(--pri) 10%, transparent); border: 0; white-space: nowrap; }
+label.qd { display: inline-flex; align-items: center; gap: 6px; }
+.money input { font-variant-numeric: tabular-nums; font-weight: 600; }
+.money .unit { color: var(--muted); font-weight: 600; margin-left: -2px; }
+.upbox { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+  border: 1.5px dashed color-mix(in srgb, var(--pri) 45%, var(--line)); color: var(--pri); font-weight: 600; font-size: 14px; }
+.upbox:hover { background: color-mix(in srgb, var(--pri) 7%, transparent); }
+.upcur, .uppre { display: inline-flex; align-items: center; gap: 10px; }
+.uppre img.th { outline: 2px solid var(--pri); outline-offset: 2px; }
+.fld.err input, .fld.err select, .fld.err textarea, .fld.err .segb, .fld.err .upbox { border-color: var(--bad); }
+.ferr { color: var(--bad); font-size: 12.5px; font-weight: 600; }
+.fbar { position: sticky; bottom: 0; z-index: 8; display: flex; justify-content: flex-end; gap: 8px;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 30%); }
+.fbar .btn .ico { width: 18px; height: 18px; }
+@media (max-width: 759px) {
+  .fbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+    background: var(--card); border-top: 1px solid var(--line); }
+  .fbar .btn[type=submit] { flex: 1; min-height: 46px; font-size: 15.5px; }
+  .fbar .btn.ghost { min-height: 46px; }
+  .fwrap { padding-bottom: 76px; }
+}
+
 /* ---- Form ---- */
 .form { display: grid; gap: 12px; min-width: 0; }
 .form > *, .fld > * { min-width: 0; }

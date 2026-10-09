@@ -406,56 +406,72 @@
   };
 
   // ---------------- FORM THÊM / SỬA ----------------
+  const SEG_MAX = 6;   // danh sách chọn có ≤ 6 lựa chọn → hiện thành nút bấm thay vì danh sách thả xuống
+  const moneyFmt = d => d ? new Intl.NumberFormat('vi-VN').format(Number(d)) : '';
+
   function fieldInput(t, f, r, isNew, def) {
     const v = r[f.n] ?? '';
     const nm = `name="${esc(f.n)}"`;
     const ro = def.keyEditable && f.n === def.key && !isNew ? 'readonly' : '';
+    const seg = (opts, cur) => `<div class="seg" data-seg="${esc(f.n)}" ${f.req ? 'data-req="1"' : ''}><input type="hidden" ${nm} value="${esc(cur)}">
+      ${opts.map(o => `<button type="button" class="segb ${String(o.v) === String(cur) ? 'on' : ''}" data-v="${esc(o.v)}">${esc(o.l)}</button>`).join('')}</div>`;
     let input;
     switch (f.t) {
       case 'longtext': input = `<textarea ${nm} rows="3">${esc(v)}</textarea>`; break;
-      case 'number': case 'price':
-        input = `<input ${nm} type="number" step="any" inputmode="decimal" value="${v === '' ? '' : esc(U.num(v))}">` +
-          (f.t === 'price' ? `<small class="hint" data-money="${esc(f.n)}">${v !== '' ? U.money(v) : ''}</small>` : '');
+      case 'price':
+        input = `<div class="inl money"><input ${nm} type="text" inputmode="numeric" autocomplete="off" data-money value="${esc(moneyFmt(v === '' ? '' : Math.round(U.num(v))))}"><span class="unit">₫</span></div>`;
         break;
-      case 'date': input = `<input ${nm} type="date" value="${esc(U.isoOf(v))}">`; break;
-      case 'datetime': input = `<input ${nm} type="datetime-local" value="${esc(U.toLocalInput(v))}">`; break;
+      case 'number': input = `<input ${nm} type="number" step="any" inputmode="decimal" value="${v === '' ? '' : esc(U.num(v))}">`; break;
+      case 'date':
+        input = `<div class="inl"><input ${nm} type="date" value="${esc(U.isoOf(v))}"><button type="button" class="qd" data-today="${esc(f.n)}">Hôm nay</button></div>`;
+        break;
+      case 'datetime':
+        input = `<div class="inl"><input ${nm} type="datetime-local" value="${esc(U.toLocalInput(v))}"><button type="button" class="qd" data-now="${esc(f.n)}">Bây giờ</button></div>`;
+        break;
       case 'expiry': {
         const no = v !== '' && !U.parseDate(v);
-        input = `<div class="inl"><input ${nm} type="date" value="${esc(U.isoOf(v))}" ${no ? 'disabled' : ''}>
-          <label class="chk"><input type="checkbox" data-noexp="${esc(f.n)}" ${no ? 'checked' : ''}> Không thời hạn</label></div>`;
+        input = `<div class="inl wrap"><input ${nm} type="date" value="${esc(U.isoOf(v))}" ${no ? 'disabled' : ''}>
+          <label class="chk qd"><input type="checkbox" data-noexp="${esc(f.n)}" ${no ? 'checked' : ''}> Không thời hạn</label></div>`;
         break;
       }
       case 'enum':
         if (f.other) input = `<input ${nm} list="dl_${esc(f.n)}" value="${esc(v)}" placeholder="Chọn hoặc gõ"><datalist id="dl_${esc(f.n)}">${f.opts.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+        else if (f.opts.length <= SEG_MAX) input = seg([...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => ({ v: o, l: o })), v);
         else input = `<select ${nm}><option value=""></option>${[...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
         break;
       case 'ref': {
         const rows = DB.rows(f.ref).slice().sort((a, b) => DB.title(f.ref, a).localeCompare(DB.title(f.ref, b), 'vi', { numeric: true }));
-        input = `<select ${nm}><option value=""></option>${rows.map(x => { const k = String(DB.keyOf(f.ref, x)); return `<option value="${esc(k)}" ${k === String(v) ? 'selected' : ''}>${esc(DB.title(f.ref, x))}</option>`; }).join('')}
-          ${v && !DB.get(f.ref, v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : ''}</select>`;
+        if (rows.length && rows.length <= SEG_MAX && (!v || DB.get(f.ref, v))) {
+          input = seg(rows.map(x => ({ v: String(DB.keyOf(f.ref, x)), l: DB.title(f.ref, x) })), v);
+        } else {
+          input = `<select ${nm}><option value=""></option>${rows.map(x => { const k = String(DB.keyOf(f.ref, x)); return `<option value="${esc(k)}" ${k === String(v) ? 'selected' : ''}>${esc(DB.title(f.ref, x))}</option>`; }).join('')}
+            ${v && !DB.get(f.ref, v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : ''}</select>`;
+        }
         break;
       }
       case 'image':
-        input = `<div class="up">${v && !isNew ? V.imgTag(t, r, f.n, 'th') + `<label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá ảnh</label>` : ''}
-          <input type="file" accept="image/*" data-up="${esc(f.n)}"></div>`;
+        input = `<div class="up">${v && !isNew ? `<span class="upcur">${V.imgTag(t, r, f.n, 'th')}<label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá ảnh</label></span>` : ''}
+          <span class="uppre" data-pre="${esc(f.n)}" hidden></span>
+          <label class="upbox">${Icon('image')}<span data-upl="${esc(f.n)}">${v ? 'Đổi ảnh' : 'Chụp hoặc chọn ảnh'}</span><input type="file" accept="image/*" data-up="${esc(f.n)}" hidden></label></div>`;
         break;
       case 'file':
-        input = `<div class="up">${v ? `<span class="muted small">📎 ${esc(fileName(v))}</span><label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá file</label>` : ''}
-          <input type="file" data-up="${esc(f.n)}"></div>`;
+        input = `<div class="up">${v ? `<span class="upcur"><span class="fchip">${Icon('file')}<span>${esc(fileName(v))}</span></span><label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá file</label></span>` : ''}
+          <label class="upbox">${Icon('file')}<span data-upl="${esc(f.n)}">${v ? 'Đổi file' : 'Chọn file'}</span><input type="file" data-up="${esc(f.n)}" hidden></label></div>`;
         break;
       default: {
         if (f.enc) {
           const isE = Vault.isEnc(v);
           input = `<div class="inl"><input ${nm} type="password" autocomplete="new-password" data-enc="1" value="${isE ? '' : esc(v)}"
             placeholder="${isE ? '•••••••• đã mã hoá — để trống nếu giữ nguyên' : ''}">
-            <button type="button" class="btn sm ghost" data-eye="${esc(f.n)}" ${isE ? 'data-dec="1"' : ''}>👁</button></div>`;
+            <button type="button" class="ibtn3" data-eye="${esc(f.n)}" ${isE ? 'data-dec="1"' : ''} title="Hiện">${Icon('eye')}</button></div>`;
         } else {
           const type = { email: 'email', url: 'url', phone: 'tel' }[f.t] || 'text';
-          input = `<input ${nm} type="${type}" value="${esc(v)}" ${ro}>`;
+          const im = f.t === 'phone' ? 'inputmode="tel"' : '';
+          input = `<input ${nm} type="${type}" ${im} value="${esc(v)}" ${ro}>`;
         }
       }
     }
-    return `<div class="fld"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}</div>`;
+    return `<div class="fld" data-f="${esc(f.n)}"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}</div>`;
   }
 
   V.form = async (t, key, params) => {
@@ -474,56 +490,104 @@
       else if (f.init === 'today') r[f.n] = U.today();
       else if (f.init != null) r[f.n] = f.init;
     });
+    const main = fields.filter(f => f.t !== 'image' && f.t !== 'file');
+    const att = fields.filter(f => f.t === 'image' || f.t === 'file');
+    const meta = metaOf(t);
 
-    App.main.innerHTML = `<form class="card form" novalidate>${fields.map(f => fieldInput(t, f, r, isNew, def)).join('')}
-      <div class="row-end sticky"><button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">💾 Lưu</button></div></form>`;
+    App.main.innerHTML = `<form class="fwrap" novalidate>
+      <div class="card form">${main.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>
+      ${att.length ? `<div class="card form"><div class="fsec"><span class="gic" style="--gc:${meta.color}">${Icon('file')}</span>Đính kèm</div>
+        ${att.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>` : ''}
+      <div class="fbar"><button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">${Icon('check')} Lưu</button></div></form>`;
     const form = App.main.querySelector('form');
     V.hydrate(form);
     const q = sel => form.querySelector(sel);
-    form.querySelector('[data-cancel]').onclick = () => history.back();
-    form.querySelectorAll('[data-money]').forEach(h => {
-      const inp = q(`[name="${CSS.escape(h.dataset.money)}"]`);
-      inp.oninput = () => { h.textContent = inp.value ? U.money(inp.value) : ''; };
+    const byName = n => q(`[name="${CSS.escape(n)}"]`);
+    let dirty = false;
+    form.addEventListener('input', () => { dirty = true; });
+    form.addEventListener('change', () => { dirty = true; });
+
+    form.querySelector('[data-cancel]').onclick = async () => {
+      if (dirty && !(await U.confirm('Bỏ những thay đổi vừa nhập?'))) return;
+      history.back();
+    };
+    // Nút chọn nhanh (thay danh sách thả xuống khi ít lựa chọn)
+    form.querySelectorAll('.seg').forEach(s => s.addEventListener('click', e => {
+      const b = e.target.closest('.segb'); if (!b) return;
+      const hid = s.querySelector('input[type=hidden]'), on = b.classList.contains('on');
+      if (on && s.dataset.req) return;
+      s.querySelectorAll('.segb').forEach(x => x.classList.remove('on'));
+      if (!on) b.classList.add('on');
+      hid.value = on ? '' : b.dataset.v;
+      dirty = true; s.closest('.fld').classList.remove('err');
+    }));
+    // Số tiền: tự thêm dấu chấm phân cách hàng nghìn
+    form.querySelectorAll('[data-money]').forEach(inp => {
+      inp.addEventListener('input', () => { const d = inp.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''); inp.value = moneyFmt(d); });
     });
+    form.querySelectorAll('[data-today]').forEach(b => b.onclick = () => { byName(b.dataset.today).value = U.today(); dirty = true; });
+    form.querySelectorAll('[data-now]').forEach(b => b.onclick = () => { byName(b.dataset.now).value = U.toLocalInput(new Date()); dirty = true; });
     form.querySelectorAll('[data-noexp]').forEach(c => {
-      c.onchange = () => { const d = q(`[name="${CSS.escape(c.dataset.noexp)}"]`); d.disabled = c.checked; if (c.checked) d.value = ''; };
+      c.onchange = () => { const d = byName(c.dataset.noexp); d.disabled = c.checked; if (c.checked) d.value = ''; };
     });
     form.querySelectorAll('[data-eye]').forEach(b => b.onclick = async () => {
-      const inp = q(`[name="${CSS.escape(b.dataset.eye)}"]`);
+      const inp = byName(b.dataset.eye);
       if (b.dataset.dec && !inp.value) {
         if (!(await Vault.ensureOpen())) return;
         inp.value = await Vault.dec(old[b.dataset.eye]); delete b.dataset.dec;
       }
       inp.type = inp.type === 'password' ? 'text' : 'password';
     });
+    // Xem trước ảnh / tên file vừa chọn
+    form.querySelectorAll('[data-up]').forEach(inp => inp.onchange = () => {
+      const n = inp.dataset.up, file = inp.files[0], lbl = q(`[data-upl="${CSS.escape(n)}"]`), pre = q(`[data-pre="${CSS.escape(n)}"]`);
+      if (!file) return;
+      lbl.textContent = file.name.length > 28 ? file.name.slice(0, 25) + '…' : file.name;
+      if (pre && file.type.startsWith('image/')) { pre.innerHTML = `<img class="th" src="${URL.createObjectURL(file)}" alt="">`; pre.hidden = false; }
+      dirty = true; inp.closest('.fld').classList.remove('err');
+    });
+
+    const markErr = (f, msg) => {
+      const box = q(`.fld[data-f="${CSS.escape(f.n)}"]`); if (!box) return;
+      box.classList.add('err');
+      if (!box.querySelector('.ferr')) box.insertAdjacentHTML('beforeend', `<small class="ferr">${esc(msg)}</small>`);
+    };
+    form.addEventListener('input', e => { const b = e.target.closest('.fld'); if (b) b.classList.remove('err'); });
 
     form.onsubmit = async e => {
       e.preventDefault();
+      form.querySelectorAll('.fld.err').forEach(b => b.classList.remove('err'));
       const out = {}, missing = [], uploads = [];
       for (const f of fields) {
-        const el = q(`[name="${CSS.escape(f.n)}"]`);
+        const el = byName(f.n);
         let val;
         if (f.t === 'image' || f.t === 'file') {
           const up = q(`[data-up="${CSS.escape(f.n)}"]`), clr = q(`[data-clear="${CSS.escape(f.n)}"]`);
           if (up.files[0]) { uploads.push([f, up.files[0]]); val = r[f.n] || 'x'; }
           else if (clr && clr.checked) val = '';
-          else { if (f.req && !r[f.n]) missing.push(f.l); continue; }
+          else { if (f.req && !r[f.n]) missing.push(f); continue; }
         } else if (f.t === 'expiry') {
           val = q(`[data-noexp="${CSS.escape(f.n)}"]`).checked ? 'Không thời hạn' : el.value;
         } else if (f.enc) {
           if (el.value === '' && Vault.isEnc(r[f.n])) continue;   // giữ nguyên giá trị đã mã hoá
           val = el.value;
-        } else if (f.t === 'number' || f.t === 'price') val = el.value === '' ? '' : Number(el.value);
+        } else if (f.t === 'price') { const d = el.value.replace(/\D/g, ''); val = d === '' ? '' : Number(d); }
+        else if (f.t === 'number') val = el.value === '' ? '' : Number(el.value);
         else if (f.t === 'datetime') val = el.value ? el.value.replace('T', ' ') : '';
         else val = el.value.trim();
-        if (f.req && (val === '' || val == null)) missing.push(f.l);
+        if (f.req && (val === '' || val == null)) missing.push(f);
         out[f.n] = val;
       }
-      if (missing.length) return U.toast('Chưa nhập: ' + missing.join(', '), 'err');
+      if (missing.length) {
+        missing.forEach(f => markErr(f, 'Bắt buộc nhập'));
+        q('.fld.err')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return U.toast('Còn ' + missing.length + ' mục bắt buộc chưa nhập', 'err');
+      }
       const k = isNew ? (def.keyEditable ? out[def.key] : U.uid()) : key;
       out[def.key] = k;
 
       const btn = q('button[type=submit]');
+      const label = btn.innerHTML;
       btn.disabled = true; btn.textContent = 'Đang lưu…';
       try {
         // Mã hoá các cột bảo mật trước khi gửi đi
@@ -545,11 +609,12 @@
         }
         if (isNew) await DB.add(t, out); else await DB.update(t, out);
         Files.forget(t, k);
+        dirty = false;
         U.toast('Đã lưu', 'ok');
         location.replace('#/r/' + t + '/' + enc(k));
       } catch (err) {
         if (err.message !== 'Đã huỷ') U.toast(err.message, 'err');
-        btn.disabled = false; btn.textContent = '💾 Lưu';
+        btn.disabled = false; btn.innerHTML = label;
       }
     };
   };
