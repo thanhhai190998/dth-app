@@ -147,22 +147,77 @@
     const it = V.findItem(key);
     if (!it || !canItem(it)) return App.notFound();
     if (it.type === 'dash') return Dash.render(it);
-    const t = it.table;
+    const t = it.table, def = TT()[t], L = def.list || {};
     App.head(it.label, { back: true });
     App.loading();
     await DB.loadDeps(t);
-    const st = (V.state[key] = V.state[key] || { q: '' });
+    const sorts = V.sortOptions(t);
+    const st = (V.state[key] = V.state[key] || { q: '', f: null, s: sorts[0].id });
     const canAdd = App.user.admin || (it.album ? Perm.rank(quyen()[it.perm]) === 2 : tableLv(t) === 2);
     const addHref = `#/f/${t}/new` + (it.album ? '?Album=' + enc(it.album) : '');
-    App.main.innerHTML = `<div class="toolbar"><input class="search" type="search" placeholder="Tìm trong ${esc(it.label)}…" value="${esc(st.q)}">
-      ${canAdd ? `<a class="btn" href="${addHref}">＋ Thêm</a>` : ''}</div><div id="lst"></div>`;
+    const chipField = L.type === 'gallery' || L.type === 'calendar' ? null : (L.filter || L.group);
+
+    App.main.innerHTML = `<div class="lbar">
+        <label class="lsearch">${Icon('search')}<input type="search" placeholder="Tìm trong ${esc(it.label.toLowerCase())}…" value="${esc(st.q)}"></label>
+        ${sorts.length > 1 ? `<select class="lsort" title="Sắp xếp">${sorts.map(s => `<option value="${s.id}" ${s.id === st.s ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select>` : ''}
+        ${canAdd ? `<a class="btn ladd" href="${addHref}">${Icon('plus')}Thêm</a>` : ''}
+      </div>
+      <div class="chips-row" id="chips"></div><div id="lst"></div>
+      ${canAdd ? `<a class="fab" href="${addHref}" title="Thêm mới" style="--gc:${it.color || 'var(--pri)'}">${Icon('plus')}</a>` : ''}`;
+    App.main.classList.toggle('has-fab', canAdd);
+
+    const base = () => V.filterRows(it, '');
+    const drawChips = () => {
+      const box = document.getElementById('chips');
+      if (!chipField) { box.hidden = true; return; }
+      const all = base(), counts = new Map();
+      all.forEach(r => { const g = groupValue(t, r, chipField); counts.set(g, (counts.get(g) || 0) + 1); });
+      if (counts.size < 2) { box.hidden = true; st.f = null; return; }
+      const keys = V.orderGroups(t, chipField, [...counts.keys()]);
+      box.innerHTML = [`<button class="chip2 ${st.f == null ? 'on' : ''}" data-f="">Tất cả <b>${all.length}</b></button>`,
+        ...keys.map(k => `<button class="chip2 ${st.f === k ? 'on' : ''}" data-f="${esc(k)}">${esc(k || '(trống)')} <b>${counts.get(k)}</b></button>`)].join('');
+      box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
+        st.f = b.dataset.f === '' ? null : b.dataset.f;
+        drawChips(); draw();
+      });
+    };
     const draw = () => {
-      const rows = V.filterRows(it, st.q);
-      document.getElementById('lst').innerHTML = `<div class="muted small count">${rows.length} mục</div>` + V.renderRows(t, rows);
+      let rows = V.filterRows(it, st.q);
+      if (chipField && st.f != null) rows = rows.filter(r => groupValue(t, r, chipField) === st.f);
+      const flat = chipField && st.f != null && chipField === L.group;
+      document.getElementById('lst').innerHTML = rows.length
+        ? V.renderRows(t, rows, { flat, sortBy: st.s, item: it })
+        : `<div class="lempty"><span class="tic" style="--gc:${it.color || 'var(--g7)'}">${Icon(it.ic || 'folder')}</span>
+            <div>${st.q || st.f != null ? 'Không có mục nào khớp' : 'Chưa có dữ liệu'}</div>
+            ${canAdd && !st.q ? `<a class="btn" href="${addHref}">${Icon('plus')}Thêm mới</a>` : ''}</div>`;
       V.hydrate(App.main);
     };
-    App.main.querySelector('.search').oninput = e => { st.q = e.target.value; draw(); };
-    draw();
+    App.main.querySelector('.lsearch input').oninput = e => { st.q = e.target.value; draw(); };
+    const ss = App.main.querySelector('.lsort');
+    if (ss) ss.onchange = () => { st.s = ss.value; draw(); };
+    drawChips(); draw();
+  };
+
+  // Các kiểu sắp xếp cho 1 bảng: theo ngày (mới/cũ) nếu có, và theo tên
+  V.sortOptions = t => {
+    const L = TT()[t].list || {}, f = L.sort && DB.field(t, L.sort);
+    const isDate = f && /^(date|datetime|expiry)$/.test(f.t);
+    const o = [];
+    if (isDate) {
+      const a = { id: 'd-desc', l: 'Mới nhất' }, b = { id: 'd-asc', l: 'Cũ nhất' };
+      if (L.desc) o.push(a, b); else o.push(b, a);
+    } else if (f && (f.t === 'number' || f.t === 'price')) o.push({ id: 'def', l: 'Mặc định' });   // vd thứ tự album
+    o.push({ id: 'az', l: 'Tên A → Z' });
+    return o;
+  };
+
+  V.orderGroups = (t, field, keys) => {
+    const L = TT()[t].list || {}, f = DB.field(t, field);
+    const order = (field === L.group && L.groupOrder) || (f && f.opts) || null;
+    return keys.sort((a, b) => {
+      if (order) { const ia = order.indexOf(a), ib = order.indexOf(b); if (ia !== ib) return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); }
+      return a.localeCompare(b, 'vi', { numeric: true });
+    });
   };
 
   V.filterRows = (it, query) => {
@@ -193,52 +248,72 @@
     return v == null ? '' : String(v);
   }
 
-  function rowHtml(t, r) {
+  // Biểu tượng + màu của mục chứa bảng t (dùng cho dòng không có ảnh)
+  const metaOf = t => {
+    for (const g of V.items()) for (const it of g.items) if (it.table === t) return { ic: it.ic, color: it.color };
+    return { ic: 'folder', color: 'var(--g7)' };
+  };
+  // Chữ cái đầu của họ + tên: "Trần Văn An" → "TA"
+  const initials = s => {
+    const w = String(s || '').replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean);
+    return (w.length > 1 ? w[0].charAt(0) + w[w.length - 1].charAt(0) : (w[0] || '?').charAt(0)).toUpperCase();
+  };
+  // Màu cố định theo giá trị (vd mỗi gói thầu một màu)
+  const TONES = ['var(--g0)', 'var(--g3)', 'var(--g4)', 'var(--g1)', 'var(--g5)', 'var(--g2)', 'var(--g7)'];
+  const toneOf = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TONES[h % TONES.length]; };
+
+  function rowHtml(t, r, meta) {
     const def = TT()[t], L = def.list || {};
-    const meta = (L.cols || []).map(c => {
+    const cols = (L.cols || []).map(c => {
       const f = DB.field(t, c); if (!f) return '';
       const v = f.enc ? (r[c] ? '••••••' : '') : DB.show(t, r, c, true);
-      return v ? `<span><i>${esc(f.l)}:</i> ${v}</span>` : '';
+      return v ? `<span><i>${esc(f.l)}</i> ${v}</span>` : '';
     }).filter(Boolean).join('');
-    const sub = DB.sub(t, r);
-    const img = def.img && r[def.img] ? V.imgTag(t, r, def.img) : '';
-    return `<a class="row" href="#/r/${t}/${enc(DB.keyOf(t, r))}">${img}
-      <div class="row-main"><div class="row-title">${esc(DB.title(t, r))}</div>
-      ${sub ? `<div class="row-sub">${esc(sub)}</div>` : ''}${meta ? `<div class="row-meta">${meta}</div>` : ''}</div>
-      ${V.badgeHtml(DB.badge(t, r))}</a>`;
+    const sub = DB.sub(t, r), title = DB.title(t, r), b = DB.badge(t, r);
+    const leadVal = L.lead && r[L.lead] ? String(r[L.lead]).slice(0, 5) : '';
+    const lead = def.img && r[def.img] ? V.imgTag(t, r, def.img)
+      : leadVal ? `<span class="lead tx" style="--gc:${toneOf(leadVal)}">${esc(leadVal)}</span>`
+      : L.avatar === 'initials' ? `<span class="lead av" style="--gc:${meta.color}">${esc(initials(title))}</span>`
+      : `<span class="lead" style="--gc:${meta.color}">${Icon(meta.ic)}</span>`;
+    return `<a class="row" href="#/r/${t}/${enc(DB.keyOf(t, r))}" ${b && b.cls ? `data-tone="${esc(b.cls)}"` : ''}>${lead}
+      <div class="row-main"><div class="row-title">${esc(title)}</div>
+      ${sub ? `<div class="row-sub">${esc(sub)}</div>` : ''}${cols ? `<div class="row-meta">${cols}</div>` : ''}</div>
+      ${V.badgeHtml(b)}</a>`;
   }
 
   V.renderRows = (t, rows, opts = {}) => {
     const def = TT()[t], L = def.list || {};
     if (!rows.length) return '<div class="empty">Chưa có dữ liệu</div>';
+    const meta = opts.item ? { ic: opts.item.ic || 'folder', color: opts.item.color || 'var(--g7)' } : metaOf(t);
+    const row = r => rowHtml(t, r, meta);
     rows = rows.slice();
-    if (L.sort) { const f = DB.field(t, L.sort); rows.sort((a, b) => cmp(DB.val(t, a, L.sort), DB.val(t, b, L.sort), f && f.t) * (L.desc ? -1 : 1)); }
+    const sb = opts.sortBy || (L.sort ? (L.desc ? 'd-desc' : 'def') : null);
+    if (sb === 'az') rows.sort((a, b) => DB.title(t, a).localeCompare(DB.title(t, b), 'vi', { numeric: true }));
+    else if (L.sort) {
+      const f = DB.field(t, L.sort), dir = sb === 'd-desc' || (sb !== 'd-asc' && L.desc) ? -1 : 1;
+      rows.sort((a, b) => cmp(DB.val(t, a, L.sort), DB.val(t, b, L.sort), f && f.t) * dir);
+    }
 
     if (L.type === 'gallery' && !opts.flat) {
       return `<div class="gallery">${rows.map(r => `<a class="ph" href="#/r/${t}/${enc(DB.keyOf(t, r))}">
-        ${r.Hinh_anh ? V.imgTag(t, r, 'Hinh_anh') : '<span class="noimg th">🖼️</span>'}
+        ${r.Hinh_anh ? V.imgTag(t, r, 'Hinh_anh') : `<span class="noimg th">${Icon('image')}</span>`}
         ${r.Mo_ta ? `<span class="cap">${esc(r.Mo_ta)}</span>` : ''}</a>`).join('')}</div>`;
     }
     if (L.type === 'calendar' && !opts.flat) {
       const now = U.parseDate(U.today());
       const up = rows.filter(r => (U.parseDate(r.NgayKetThuc || r.NgayBatDau) || 0) >= now);
       const past = rows.filter(r => !up.includes(r)).reverse();
-      const sec = (title, rs) => rs.length ? `<details class="lgrp" open><summary>${title} <span class="cnt">${rs.length}</span></summary>${rs.map(r => rowHtml(t, r)).join('')}</details>` : '';
+      const sec = (title, rs) => rs.length ? `<details class="lgrp" open><summary>${title} <span class="cnt">${rs.length}</span></summary>${rs.map(row).join('')}</details>` : '';
       return sec('Sắp tới', up) + sec('Đã qua', past);
     }
     if (L.group && !opts.flat) {
       const groups = new Map();
       rows.forEach(r => { const g = groupValue(t, r, L.group); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
-      const f = DB.field(t, L.group);
-      const order = L.groupOrder || (f && f.opts) || null;
-      const keys = [...groups.keys()].sort((a, b) => {
-        if (order) { const ia = order.indexOf(a), ib = order.indexOf(b); if (ia !== ib) return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); }
-        return a.localeCompare(b, 'vi');
-      });
+      const keys = V.orderGroups(t, L.group, [...groups.keys()]);
       return keys.map(g => `<details class="lgrp" open><summary>${esc(g || '(trống)')} <span class="cnt">${groups.get(g).length}</span></summary>
-        ${groups.get(g).map(r => rowHtml(t, r)).join('')}</details>`).join('');
+        ${groups.get(g).map(row).join('')}</details>`).join('');
     }
-    return `<div class="rows">${rows.map(r => rowHtml(t, r)).join('')}</div>`;
+    return `<div class="rows">${rows.map(row).join('')}</div>`;
   };
 
   // ---------------- CHI TIẾT ----------------

@@ -6,6 +6,8 @@
 //    text | longtext | number | price | date | datetime | expiry (ngày hoặc "Không thời hạn")
 //    enum (opts, other=true cho phép gõ giá trị khác) | ref (ref = bảng tham chiếu)
 //    image | file | email | url | phone
+//  Danh sách (list): group = nhóm theo cột, filter = cột làm nút lọc nhanh (mặc định = group),
+//    sort/desc = sắp xếp mặc định, cols = cột hiện thêm trong mỗi dòng, avatar: 'initials' = chữ cái đầu
 //  Thuộc tính khác: req (bắt buộc), init ('today' hoặc giá trị mặc định),
 //    enc (mã hoá bằng mật khẩu chủ), v (cột ảo — hàm tính, không lưu vào Sheet)
 //
@@ -227,7 +229,7 @@
           return a > 0 ? 'Họ đang nợ mình' : b > 0 ? 'Mình đang nợ họ' : 'Đã tất toán';
         } }
     ],
-    list: { cols: ['HoNoMinh', 'MinhNoHo'] },
+    list: { cols: ['HoNoMinh', 'MinhNoHo'], avatar: 'initials' },
     badge: (r, db) => {
       const a = debt(db, r.ID, 'Cho vay', 'Họ trả mình'), b = debt(db, r.ID, 'Đi mượn', 'Mình trả họ');
       return a > 0 ? { text: 'Nợ mình ' + U.money(a), cls: 'bad' } : b > 0 ? { text: 'Mình nợ ' + U.money(b), cls: 'warn' } : { text: 'Đã tất toán', cls: 'ok' };
@@ -261,7 +263,7 @@
       { n: 'DiaChi', l: 'Địa chỉ', t: 'text' },
       { n: 'Note', l: 'Ghi chú', t: 'longtext' }
     ],
-    list: { sort: 'HoTen', cols: ['SDT'] }
+    list: { sort: 'HoTen', cols: ['SDT'], avatar: 'initials' }
   };
 
   T.Danh_sach_goi_thau = {
@@ -285,7 +287,8 @@
   };
 
   T.Cong_viec = {
-    label: 'Transmittal', key: 'id', title: r => r.Transmittal_No || '(chưa có số)', sub: r => r.Goi_thau,
+    label: 'Transmittal', key: 'id', title: r => r.Transmittal_No || '(chưa có số)',
+    sub: (r, db) => { const p = db.get('Danh_Ba', r.Nguoi_giaoviec); return p ? 'Giao: ' + p.HoTen : r.Goi_thau; },
     needs: ['Danh_sach_goi_thau', 'Danh_Ba'],
     fields: [
       { n: 'Goi_thau', l: 'Gói thầu', t: 'ref', ref: 'Danh_sach_goi_thau', req: true },
@@ -298,8 +301,15 @@
       { n: 'TrangThai', l: 'Trạng thái', t: 'text', v: (r, db) => transStatus(r, db) },
       { n: 'Tinh_trang_xl', l: 'Tình trạng', t: 'text', v: r => r.Ngay_hoan_thanh ? 'Đã xử lý' : 'Đang xử lý' }
     ],
-    list: { group: 'Tinh_trang_xl', groupOrder: ['Đang xử lý', 'Đã xử lý'], sort: 'Date_Incoming', desc: true, cols: ['Date_Incoming', 'Deadline'] },
-    badge: (r, db) => ({ text: transStatus(r, db), cls: { 'Quá hạn': 'bad', 'Trễ hạn': 'warn', 'Đúng hạn': 'ok', 'Đang xử lý': 'info' }[transStatus(r, db)] }),
+    list: { group: 'Tinh_trang_xl', groupOrder: ['Đang xử lý', 'Đã xử lý'], filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Date_Incoming', desc: true, cols: ['Date_Incoming', 'Deadline'] },
+    // Đang xử lý: đếm ngược số ngày đến hạn; đã xử lý: đúng hạn / trễ hạn
+    badge: (r, db) => {
+      if (r.Ngay_hoan_thanh) { const s = transStatus(r, db); return { text: s, cls: s === 'Trễ hạn' ? 'warn' : 'ok' }; }
+      const dl = deadlineOf(r, db);
+      if (!dl) return { text: 'Đang xử lý', cls: 'info' };
+      const n = U.daysBetween(U.today(), dl);
+      return n < 0 ? { text: 'Quá ' + (-n) + ' ngày', cls: 'bad' } : { text: n === 0 ? 'Hạn hôm nay' : 'Còn ' + n + ' ngày', cls: n <= 3 ? 'warn' : 'info' };
+    },
     related: [{ t: 'Document_no_In', fk: 'id_transmittal', l: 'Tài liệu đến' }, { t: 'Document_no_Out', fk: 'id_transmittal', l: 'Tài liệu đi (trả lời)' }]
   };
 
@@ -349,7 +359,7 @@
   };
 
   T.Kiem_tra_hang = {
-    label: 'Kiểm tra vật tư', key: 'id', title: r => r.Noi_dung, sub: r => r.Goi_thau, img: 'Hinh_anh',
+    label: 'Kiểm tra vật tư', key: 'id', title: r => r.Noi_dung, sub: r => r.Ghi_chu, img: 'Hinh_anh',
     needs: ['Danh_sach_goi_thau'],
     fields: [
       { n: 'Phan_loai', l: 'Phân loại', t: 'enum', opts: ['Kiểm đếm', 'Mở kiện', 'Thống kê Vật tư'] },
@@ -362,7 +372,7 @@
       { n: 'Hinh_anh', l: 'Hình ảnh', t: 'image' },
       { n: 'File', l: 'File đính kèm', t: 'file' }
     ],
-    list: { group: 'Phan_loai', sort: 'Ngay_thuc_hien', desc: true, cols: ['So_luong', 'Ngay_thuc_hien'] },
+    list: { group: 'Phan_loai', filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Ngay_thuc_hien', desc: true, cols: ['So_luong', 'Ngay_thuc_hien'] },
     badge: r => r.Ngay_hoan_thanh ? { text: 'Hoàn thành', cls: 'ok' } : { text: 'Chưa xong', cls: 'bad' }
   };
 
@@ -519,13 +529,14 @@
   GROUPS.forEach(g => g.items.forEach(it => {
     if (!it.type) { it.type = 'table'; it.table = it.key; it.label = it.label || T[it.key].label; }
     it.perm = it.key;
+    it.color = g.color;
   }));
 
   // Nhóm 5 lấy danh sách album từ bảng ALBUM
   function groupsWithAlbums(db) {
     const albums = db.rows('ALBUM').slice().sort((a, b) => U.num(a.Thu_tu) - U.num(b.Thu_tu));
     return GROUPS.map(g => g.albums ? { ...g, items: albums.map(a => ({
-      key: 'HINH_ANH#' + a.id, perm: 'HINH_ANH#' + a.id, label: a.Ten_album, ic: 'image', desc: a.Mo_ta || 'Album ảnh',
+      key: 'HINH_ANH#' + a.id, perm: 'HINH_ANH#' + a.id, label: a.Ten_album, ic: 'image', desc: a.Mo_ta || 'Album ảnh', color: g.color,
       type: 'album', table: 'HINH_ANH', album: a.id
     })) } : g);
   }
