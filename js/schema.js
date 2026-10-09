@@ -473,30 +473,48 @@
 
   // ---------------- MENU: NHÓM → MỤC ----------------
   // Mỗi mục có khoá quyền (perm). Mục bảng: perm = tên bảng. Album: sinh tự động từ bảng ALBUM.
+  // ic = tên biểu tượng trong js/icons.js, desc = mô tả ngắn dưới tên mục, color = màu nhóm (biến CSS)
   const GROUPS = [
-    { key: 'g0', label: 'Tổng quan', items: [
-      { key: 'DASH_TAICHINH', label: 'Dashboard tài chính', icon: '📊', type: 'dash' },
-      { key: 'DASH_CONGVIEC', label: 'Dashboard công việc', icon: '📈', type: 'dash' },
-      { key: 'DASH_CANHBAO', label: 'Cảnh báo & nhắc việc', icon: '⏰', type: 'dash' }
+    { key: 'g0', label: 'Tổng quan', ic: 'chart', color: 'var(--g0)', items: [
+      { key: 'DASH_TAICHINH', label: 'Dashboard tài chính', ic: 'chart', desc: 'Số dư, thu chi, công nợ', type: 'dash' },
+      { key: 'DASH_CONGVIEC', label: 'Dashboard công việc', ic: 'trend', desc: 'Transmittal, tài liệu, task', type: 'dash' },
+      { key: 'DASH_CANHBAO', label: 'Cảnh báo & nhắc việc', ic: 'bell', desc: 'Hết hạn, quá hạn, lịch', type: 'dash' }
     ] },
-    { key: 'g1', label: '1. Thông tin chung', items: [
-      { key: 'THONGTIN_CANHAN', icon: '🪪' }, { key: 'Gioi_thieu', icon: '👤' }, { key: 'BANGCAP', icon: '🎓' },
-      { key: 'KINHNGHIEM', icon: '🏭' }, { key: 'GIAITHUONG', icon: '🏆' }, { key: 'Khac', icon: '📰' }
+    { key: 'g1', label: 'Thông tin chung', ic: 'user', color: 'var(--g1)', items: [
+      { key: 'THONGTIN_CANHAN', ic: 'idcard', desc: 'CCCD, địa chỉ, liên hệ' },
+      { key: 'Gioi_thieu', ic: 'user', desc: 'Tiểu sử, học vị' },
+      { key: 'BANGCAP', ic: 'cap', desc: 'Văn bằng các cấp' },
+      { key: 'KINHNGHIEM', ic: 'briefcase', desc: 'Quá trình công tác' },
+      { key: 'GIAITHUONG', ic: 'trophy', desc: 'Khen thưởng' },
+      { key: 'Khac', ic: 'news', desc: 'Bài báo khoa học' }
     ] },
-    { key: 'g2', label: '2. Hồ sơ', items: [
-      { key: 'Hop_dong', icon: '📝' }, { key: 'Quyet_dinh', icon: '📜' }, { key: 'Chungchi_congviec', icon: '🏅' }
+    { key: 'g2', label: 'Hồ sơ', ic: 'contract', color: 'var(--g2)', items: [
+      { key: 'Hop_dong', ic: 'contract', desc: 'HĐ lao động, thoả thuận' },
+      { key: 'Quyet_dinh', ic: 'stamp', desc: 'Bổ nhiệm, điều động' },
+      { key: 'Chungchi_congviec', ic: 'award', desc: 'Chứng chỉ hành nghề' }
     ] },
-    { key: 'g3', label: '3. Tài chính', items: [
-      { key: 'TAIKHOAN_TAICHINH', icon: '🏦' }, { key: 'GIAODICH_THUCHI', icon: '💸' },
-      { key: 'NGUOI_VAY_MUON', icon: '🤝' }, { key: 'GIAODICH_VAY_MUON', icon: '📒' }
+    { key: 'g3', label: 'Tài chính', ic: 'wallet', color: 'var(--g3)', items: [
+      { key: 'TAIKHOAN_TAICHINH', ic: 'bank', desc: 'Số dư các tài khoản' },
+      { key: 'GIAODICH_THUCHI', ic: 'swap', desc: 'Thu nhập, chi tiêu' },
+      { key: 'NGUOI_VAY_MUON', ic: 'users', desc: 'Ai đang nợ ai' },
+      { key: 'GIAODICH_VAY_MUON', ic: 'ledger', desc: 'Lịch sử vay, trả' }
     ] },
-    { key: 'g4', label: '4. Công việc', items: [
-      { key: 'Cong_viec', icon: '📦' }, { key: 'Document_no_In', icon: '📥' }, { key: 'Document_no_Out', icon: '📤' },
-      { key: 'Cong_viec_duoc_giao', icon: '✅' }, { key: 'Kiem_tra_hang', icon: '🔍' }, { key: 'Danh_sach_goi_thau', icon: '🗂️' },
-      { key: 'Danh_Ba', icon: '📇' }, { key: 'Tool', icon: '🧰' }, { key: 'Link', icon: '🔗' }, { key: 'Calendar', icon: '📅' }
+    { key: 'g4', label: 'Công việc', ic: 'box', color: 'var(--g4)', items: [
+      { key: 'Cong_viec', ic: 'box', desc: 'Transmittal nhà thầu' },
+      { key: 'Document_no_In', ic: 'inbox', desc: 'Tài liệu nhận về' },
+      { key: 'Document_no_Out', ic: 'send', desc: 'Tài liệu trả lời' },
+      { key: 'Cong_viec_duoc_giao', ic: 'check', desc: 'Việc được giao thêm' },
+      { key: 'Kiem_tra_hang', ic: 'inspect', desc: 'Kiểm đếm, mở kiện' },
+      { key: 'Danh_sach_goi_thau', ic: 'folder', desc: 'Hợp đồng, nhà thầu' },
+      { key: 'Danh_Ba', ic: 'contacts', desc: 'Danh bạ phòng' },
+      { key: 'Tool', ic: 'tool', desc: 'File công cụ' },
+      { key: 'Link', ic: 'link', desc: 'Liên kết hay dùng' },
+      { key: 'Calendar', ic: 'calendar', desc: 'Lịch họp, sự kiện' }
     ] },
-    { key: 'g5', label: '5. Hình ảnh', albums: true, items: [] },
-    { key: 'g6', label: '6. Bảo mật & Tiện ích', items: [{ key: 'TAIKHOAN_MATKHAU', icon: '🔐' }] }
+    { key: 'g5', label: 'Hình ảnh', ic: 'image', color: 'var(--g5)', albums: true, items: [] },
+    { key: 'g6', label: 'Bảo mật & tiện ích', ic: 'lock', color: 'var(--g6)', items: [
+      { key: 'TAIKHOAN_MATKHAU', ic: 'key', desc: 'Mã hoá bằng mật khẩu chủ' }
+    ] }
   ];
   GROUPS.forEach(g => g.items.forEach(it => {
     if (!it.type) { it.type = 'table'; it.table = it.key; it.label = it.label || T[it.key].label; }
@@ -507,7 +525,8 @@
   function groupsWithAlbums(db) {
     const albums = db.rows('ALBUM').slice().sort((a, b) => U.num(a.Thu_tu) - U.num(b.Thu_tu));
     return GROUPS.map(g => g.albums ? { ...g, items: albums.map(a => ({
-      key: 'HINH_ANH#' + a.id, perm: 'HINH_ANH#' + a.id, label: a.Ten_album, icon: '🖼️', type: 'album', table: 'HINH_ANH', album: a.id
+      key: 'HINH_ANH#' + a.id, perm: 'HINH_ANH#' + a.id, label: a.Ten_album, ic: 'image', desc: a.Mo_ta || 'Album ảnh',
+      type: 'album', table: 'HINH_ANH', album: a.id
     })) } : g);
   }
 

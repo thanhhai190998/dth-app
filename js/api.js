@@ -24,7 +24,7 @@
     set(cred, silent) {
       const p = decodeJwt(cred);
       if (p.exp * 1000 <= Date.now() + 60000) { if (silent) return; }
-      this.token = cred; this.exp = p.exp; this.email = p.email; this.name = p.name || ''; this.picture = p.picture || '';
+      this.token = cred; this.exp = p.exp; this.email = p.email; this.name = p.name || ''; this.given = p.given_name || ''; this.picture = p.picture || '';
       try { localStorage.setItem('pwa-auth', JSON.stringify({ t: cred })); } catch (e) { /* bỏ qua */ }
     },
     clear() {

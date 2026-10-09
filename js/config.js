@@ -5,6 +5,7 @@
 window.APP_CONFIG = {
   appName: 'MSc. Dinh Thanh Hai',   // tên hiển thị trên đầu app
   primaryColor: '#0089ff',          // màu chủ đạo (đổi cả theme-color trong manifest.webmanifest nếu muốn)
+  font: 'K2D',                      // tên font trên Google Fonts (phải hỗ trợ tiếng Việt); '' = font mặc định của máy
 
   // 'live' = dữ liệu thật trên Google Sheets qua Apps Script
   // 'demo' = chạy thử với dữ liệu giả (lưu trong trình duyệt) — mở app kèm ?demo ở cuối địa chỉ
@@ -18,5 +19,5 @@ window.APP_CONFIG = {
   deadlineDaysDefault: 14,   // hạn trả lời transmittal mặc định (ngày) nếu gói thầu chưa đặt riêng
   expiryWarnDays: 90,        // cảnh báo bằng cấp / chứng chỉ sắp hết hạn trước N ngày
   passwordAgeWarnDays: 180,  // nhắc đổi mật khẩu tài khoản sau N ngày
-  version: '0.1.1'
+  version: '0.2.0'
 };

@@ -11,8 +11,33 @@
       document.getElementById('title').textContent = title;
       document.getElementById('back').hidden = !opt.back;
       document.getElementById('logo').hidden = !!opt.back;
+      document.querySelector('.top').classList.toggle('flat', !!opt.home);
+      if (!opt.home) App.hero('');
       document.title = opt.home ? C.appName : title + ' · ' + C.appName;
       App.lockIcon();
+      App.navActive();
+    },
+    // Vùng nền màu phía trên (chỉ trang chủ)
+    hero(html) { const h = document.getElementById('hero'); h.innerHTML = html; h.hidden = !html; },
+    // Thanh điều hướng dưới cùng (điện thoại)
+    buildNav() {
+      const q = App.user.quyen || {}, can = k => App.user.admin || Perm.rank(q[k]) > 0;
+      const items = [
+        { href: '#/', ic: 'home', l: 'Trang chủ' },
+        can('Cong_viec') && { href: '#/i/Cong_viec', ic: 'box', l: 'Transmittal' },
+        can('DASH_CANHBAO') && { href: '#/i/DASH_CANHBAO', ic: 'bell', l: 'Nhắc việc' },
+        { href: '#/settings', ic: 'gear', l: 'Cài đặt' }
+      ].filter(Boolean);
+      document.getElementById('bnav').innerHTML = items.map(i => `<a href="${i.href}">${Icon(i.ic)}<span>${i.l}</span></a>`).join('');
+      document.body.classList.add('has-bnav');
+    },
+    navActive() {
+      const nav = document.getElementById('bnav'), h = location.hash || '#/';
+      nav.hidden = /^#\/(f|admin\/u)\//.test(h);
+      nav.querySelectorAll('a').forEach(a => {
+        const href = a.getAttribute('href');
+        a.classList.toggle('on', href === '#/' ? (h === '#/' || h === '#' || h === '') : h.startsWith(href));
+      });
     },
     loading() { App.main.innerHTML = '<div class="center pad"><span class="spin"></span></div>'; },
     notFound() { App.head('Không tìm thấy', { back: true }); App.main.innerHTML = '<div class="empty">Không có trang này hoặc bạn không có quyền truy cập.</div>'; },
@@ -45,7 +70,20 @@
     }
   }
 
+  // Font chữ từ Google Fonts (thêm ?font=system vào địa chỉ để xem bằng font mặc định của máy)
+  function loadFont() {
+    const f = new URLSearchParams(location.search).get('font') ?? C.font;
+    if (!f || f === 'system') return;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.crossOrigin = 'anonymous';   // để service worker lưu được font (dùng khi mất mạng)
+    l.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(f).replace(/%20/g, '+') + ':wght@400;500;600;700;800&display=swap';
+    document.head.appendChild(l);
+    document.documentElement.style.setProperty('--font', `'${f}', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`);
+  }
+
   async function start() {
+    loadFont();
     document.documentElement.style.setProperty('--pri', C.primaryColor);
     document.getElementById('appname').textContent = C.appName;
     if (C.mode === 'demo') document.body.classList.add('is-demo');
@@ -67,7 +105,8 @@
           : '<button class="btn" onclick="API.signOut();location.reload()">Đăng nhập tài khoản khác</button>'}</div>`;
       return;
     }
-    document.getElementById('avatar').textContent = (App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
+    document.getElementById('avatar').textContent = ((window.Auth && Auth.name) || App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
+    App.buildNav();
     window.addEventListener('hashchange', route);
     route();
   }

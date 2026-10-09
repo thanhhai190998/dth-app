@@ -13,7 +13,7 @@
   V.items = () => S().groupsWithAlbums(DB);
   V.findItem = key => {
     for (const g of V.items()) for (const it of g.items) if (it.key === key) return it;
-    if (TT()[key]) return { key, type: 'table', table: key, label: TT()[key].label, perm: key, icon: '📁' };
+    if (TT()[key]) return { key, type: 'table', table: key, label: TT()[key].label, perm: key, ic: 'folder' };
     return null;
   };
 
@@ -41,20 +41,105 @@
   };
 
   // ---------------- TRANG CHỦ ----------------
+  // Nhóm nào đang thu gọn (nhớ theo từng máy)
+  const COLLAPSE_KEY = 'pwa-home-collapsed';
+  const collapsed = () => { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'); } catch (e) { return []; } };
+  const saveCollapsed = a => { try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(a)); } catch (e) { /* bỏ qua */ } };
+
+  function greeting() {
+    const h = new Date().getHours();
+    const hello = h < 11 ? 'Chào buổi sáng' : h < 13 ? 'Chào buổi trưa' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+    const name = (window.Auth && Auth.given) || App.user.name || (App.user.email || '').split('@')[0];
+    const day = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+    return { hello, name, day: day.charAt(0).toUpperCase() + day.slice(1) };
+  }
+
+  const tileHtml = (it, color) => `<a class="tile" href="#/i/${enc(it.key)}" style="--gc:${color}" data-s="${esc(U.norm(it.label + ' ' + (it.desc || '')))}">
+    <span class="tic">${Icon(it.ic)}</span><span class="tl">${esc(it.label)}</span>${it.desc ? `<span class="td">${esc(it.desc)}</span>` : ''}</a>`;
+
   V.home = async () => {
     App.head(window.APP_CONFIG.appName, { home: true });
     App.loading();
     await DB.load('ALBUM').catch(() => {});
     const groups = V.items().map(g => ({ ...g, items: g.items.filter(canItem) })).filter(g => g.items.length);
+    if (App.user.admin) groups.push({ key: 'adm', label: 'Quản trị', ic: 'shield', color: 'var(--g7)', items: [
+      { key: '_admin', label: 'Phân quyền', ic: 'shield', desc: 'Người dùng & quyền', href: '#/admin' },
+      { key: 'ALBUM', label: 'Quản lý album', ic: 'image', desc: 'Thêm, sửa album ảnh' },
+      { key: '_settings', label: 'Cài đặt', ic: 'gear', desc: 'Mật khẩu chủ, cài app', href: '#/settings' }
+    ] });
+
+    const can = t => permTableLevel(App.user, t);
+    const kpis = [
+      { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', href: '#/i/Cong_viec' },
+      { id: 'od', ts: ['Cong_viec'], label: 'Quá hạn trả lời', ic: 'alert', href: '#/i/DASH_CONGVIEC' },
+      { id: 'tk', ts: ['Cong_viec_duoc_giao'], label: 'Task đang làm', ic: 'check', href: '#/i/Cong_viec_duoc_giao' },
+      { id: 'ex', ts: ['BANGCAP', 'Chungchi_congviec'], label: 'Giấy tờ sắp hết hạn', ic: 'clock', href: '#/i/DASH_CANHBAO' }
+    ].filter(k => k.ts.some(t => can(t) > 0));
+    const quick = [
+      { t: 'Cong_viec', label: 'Transmittal' }, { t: 'GIAODICH_THUCHI', label: 'Thu / chi' },
+      { t: 'Cong_viec_duoc_giao', label: 'Task' }, { t: 'Kiem_tra_hang', label: 'Kiểm tra vật tư' }
+    ].filter(q => can(q.t) === 2);
+
+    const g = greeting();
+    App.hero(`<div class="hero-in ${kpis.length ? 'with-kpi' : ''}">
+      <div class="hday">${esc(g.day)}</div>
+      <h1 class="hhello">${esc(g.hello)}, ${esc(g.name)}</h1>
+      <label class="hsearch">${Icon('search')}<input type="search" id="hq" placeholder="Tìm nhanh một mục…" autocomplete="off"></label>
+    </div>`);
+
+    const closed = collapsed();
     let html = '';
-    if (!groups.length && !App.user.admin) html += '<div class="empty">Tài khoản của bạn chưa được cấp quyền mục nào. Hãy liên hệ quản trị viên.</div>';
-    html += groups.map(g => `<section class="grp"><h2>${esc(g.label)} <span class="cnt">${g.items.length}</span></h2>
-      <div class="tiles">${g.items.map(it => `<a class="tile" href="#/i/${enc(it.key)}"><span class="ic">${it.icon || '📁'}</span><span class="tl">${esc(it.label)}</span></a>`).join('')}</div></section>`).join('');
-    if (App.user.admin) html += `<section class="grp"><h2>Quản trị</h2><div class="tiles">
-      <a class="tile" href="#/admin"><span class="ic">👥</span><span class="tl">Phân quyền</span></a>
-      <a class="tile" href="#/i/ALBUM"><span class="ic">🗃️</span><span class="tl">Quản lý album</span></a>
-      <a class="tile" href="#/settings"><span class="ic">⚙️</span><span class="tl">Cài đặt</span></a></div></section>`;
+    if (kpis.length) html += `<div class="kpi-row">${kpis.map(k => `<a class="kcard" href="${k.href}" data-k="${k.id}">
+      <span class="kic">${Icon(k.ic)}</span><span class="kn"><span class="skel"></span></span><span class="kl">${esc(k.label)}</span></a>`).join('')}</div>`;
+    if (quick.length) html += `<div class="quick"><span class="qt">Thêm nhanh</span>${quick.map(q =>
+      `<a class="qbtn" href="#/f/${q.t}/new">${Icon('plus')}${esc(q.label)}</a>`).join('')}</div>`;
+    if (!groups.length) html += '<div class="empty">Tài khoản của bạn chưa được cấp quyền mục nào. Hãy liên hệ quản trị viên.</div>';
+    html += groups.map(gr => `<section class="grp ${closed.includes(gr.key) ? 'closed' : ''}" data-g="${gr.key}" style="--gc:${gr.color}">
+      <button type="button" class="grp-h" data-tg="${gr.key}"><span class="gic">${Icon(gr.ic)}</span><span class="gname">${esc(gr.label)}</span>
+        <span class="cnt">${gr.items.length}</span><span class="chev">${Icon('chevron')}</span></button>
+      <div class="tiles">${gr.items.map(it => it.href ? tileHtml(it, gr.color).replace(`href="#/i/${enc(it.key)}"`, `href="${it.href}"`) : tileHtml(it, gr.color)).join('')}</div></section>`).join('');
+    html += '<div class="empty" id="nores" hidden>Không có mục nào khớp</div>';
     App.main.innerHTML = html;
+
+    // Thu gọn / mở nhóm
+    App.main.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => {
+      const sec = b.closest('.grp'), now = collapsed().filter(k => k !== sec.dataset.g);
+      if (sec.classList.toggle('closed')) now.push(sec.dataset.g);
+      saveCollapsed(now);
+    });
+    // Tìm nhanh trong các mục
+    const hq = document.getElementById('hq');
+    hq.oninput = () => {
+      const q = U.norm(hq.value.trim());
+      let any = false;
+      App.main.querySelectorAll('.grp').forEach(sec => {
+        let n = 0;
+        sec.querySelectorAll('.tile').forEach(t => { const on = !q || t.dataset.s.includes(q); t.hidden = !on; if (on) n++; });
+        sec.hidden = !n; sec.classList.toggle('searching', !!q); any = any || n > 0;
+        sec.querySelector('.cnt').textContent = n;
+      });
+      document.getElementById('nores').hidden = any;
+      App.main.querySelectorAll('.kpi-row, .quick').forEach(el => { el.hidden = !!q; });
+      document.querySelector('.hero-in').classList.toggle('with-kpi', kpis.length > 0 && !q);
+    };
+
+    // Số liệu trong ngày (tải sau, không chặn trang)
+    if (kpis.length) {
+      const need = [...new Set(kpis.flatMap(k => k.ts).filter(t => can(t) > 0))];
+      await Promise.all(need.map(t => DB.loadDeps(t).catch(() => {})));
+      const set = (id, n, warn) => {
+        const card = App.main.querySelector(`[data-k="${id}"]`); if (!card) return;
+        card.querySelector('.kn').textContent = n;
+        card.classList.toggle('warn', !!warn && n > 0);
+        card.classList.toggle('good', !!warn && n === 0);
+      };
+      const pending = DB.rows('Cong_viec').filter(r => !r.Ngay_hoan_thanh);
+      set('tr', pending.length);
+      set('od', pending.filter(r => SCHEMA.transStatus(r, DB) === 'Quá hạn').length, true);
+      set('tk', DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý').length);
+      set('ex', ['BANGCAP', 'Chungchi_congviec'].flatMap(t => DB.rows(t))
+        .filter(r => { const n = SCHEMA.expiryDays(r.NgayHetHan); return n != null && n <= window.APP_CONFIG.expiryWarnDays; }).length, true);
+    }
   };
 
   // ---------------- DANH SÁCH ----------------

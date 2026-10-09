@@ -19,12 +19,14 @@
   <button id="back" class="ibtn" hidden aria-label="Quay lại">‹</button>
   <a href="#/" id="logo"><img src="icons/icon.svg" alt="Trang chủ" width="34" height="34"></a>
   <div id="title" class="ttl">…</div>
+  <span class="demo-pill" title="Dữ liệu giả, chỉ lưu trong trình duyệt này">DEMO</span>
   <button id="update" class="ibtn upd" hidden title="Có bản mới — bấm để cập nhật">⟳</button>
   <button id="lock" class="ibtn" hidden></button>
   <button id="menu" class="avatar" title="Cài đặt"><span id="avatar">?</span></button>
 </header>
-<div class="demo-bar">CHẾ ĐỘ DEMO — dữ liệu giả, chỉ lưu trong trình duyệt này</div>
+<div id="hero" hidden></div>
 <main id="view"></main>
+<nav id="bnav" class="bnav"></nav>
 
 <div id="login" class="login" hidden>
   <div class="login-box">
@@ -37,6 +39,7 @@
 
 <script src="js/config.js"></script>
 <script src="js/util.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/perm.js"></script>
 <script src="js/vault.js"></script>
 <script src="js/schema.js"></script>

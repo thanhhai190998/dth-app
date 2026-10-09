@@ -45,7 +45,7 @@
       <table class="perm"><thead><tr><th>Nhóm / mục</th><th>Xem</th><th>Sửa</th></tr></thead><tbody>
       ${groups.map(g => `<tr class="pg"><td><button type="button" class="tog" data-tg="${g.key}">▾</button> <b>${esc(g.label)}</b></td>
           <td><input type="checkbox" data-g="${g.key}" data-l="view"></td><td><input type="checkbox" data-g="${g.key}" data-l="edit"></td></tr>
-        ${g.items.map(it => `<tr class="pi" data-in="${g.key}"><td>${it.icon || ''} ${esc(it.label)}</td>
+        ${g.items.map(it => `<tr class="pi" data-in="${g.key}"><td><span class="pic" style="color:${g.color}">${Icon(it.ic, 'sm')}</span> ${esc(it.label)}</td>
           <td><input type="checkbox" data-k="${esc(it.perm)}" data-gg="${g.key}" data-l="view" ${Perm.rank(q[it.perm]) >= 1 ? 'checked' : ''}></td>
           <td><input type="checkbox" data-k="${esc(it.perm)}" data-gg="${g.key}" data-l="edit" ${Perm.rank(q[it.perm]) >= 2 ? 'checked' : ''} ${it.key === 'DASH_TAICHINH' || it.key === 'DASH_CONGVIEC' || it.key === 'DASH_CANHBAO' ? 'disabled' : ''}></td></tr>`).join('')}`).join('')}
       </tbody></table>
