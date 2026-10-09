@@ -1,0 +1,367 @@
+// Màn hình: trang chủ (menu), danh sách, chi tiết, form thêm/sửa
+(function () {
+  const S = () => window.SCHEMA, TT = () => window.SCHEMA.tables;
+  const esc = U.esc, enc = encodeURIComponent;
+  const V = (window.Views = { state: {} });
+
+  const quyen = () => App.user.quyen || {};
+  const canItem = it => App.user.admin || Perm.rank(quyen()[it.perm]) > 0;
+  const tableLv = t => permTableLevel(App.user, t);
+  const rowLv = (t, r) => permRowLevel(App.user, t, r, (pt, k) => DB.get(pt, k));
+  const fileName = p => String(p || '').split('/').pop().replace(/^[0-9a-f]{8}\./, '');
+
+  V.items = () => S().groupsWithAlbums(DB);
+  V.findItem = key => {
+    for (const g of V.items()) for (const it of g.items) if (it.key === key) return it;
+    if (TT()[key]) return { key, type: 'table', table: key, label: TT()[key].label, perm: key, icon: '📁' };
+    return null;
+  };
+
+  V.badgeHtml = b => b && b.text ? `<span class="badge ${esc(b.cls || '')}">${esc(b.text)}</span>` : '';
+  V.imgTag = (t, r, field, cls) => `<img class="${cls || 'th'}" data-img="${esc(t)}|${esc(DB.keyOf(t, r))}|${esc(field)}" alt="">`;
+
+  // Tải ảnh thật (qua API có kiểm tra quyền) cho mọi <img data-img>
+  V.hydrate = root => {
+    root.querySelectorAll('img[data-img]:not([data-loading])').forEach(img => {
+      img.dataset.loading = '1';
+      const [t, key, field] = img.dataset.img.split('|');
+      Files.url(t, key, field, true).then(u => {
+        if (u) img.src = u; else img.replaceWith(Object.assign(document.createElement('span'), { className: 'noimg ' + img.className, textContent: '🖼️' }));
+      }).catch(() => img.replaceWith(Object.assign(document.createElement('span'), { className: 'noimg ' + img.className, textContent: '⚠️' })));
+      if (img.classList.contains('big')) img.onclick = () => V.lightbox(t, key, field);
+    });
+  };
+  V.lightbox = async (t, key, field) => {
+    const bg = document.createElement('div');
+    bg.className = 'lightbox'; bg.innerHTML = '<span class="spin"></span>';
+    bg.onclick = () => bg.remove();
+    document.body.appendChild(bg);
+    try { const u = await Files.url(t, key, field, false); bg.innerHTML = u ? `<img src="${u}" alt="">` : 'Không tải được ảnh'; }
+    catch (e) { bg.textContent = e.message; }
+  };
+
+  // ---------------- TRANG CHỦ ----------------
+  V.home = async () => {
+    App.head(window.APP_CONFIG.appName, { home: true });
+    App.loading();
+    await DB.load('ALBUM').catch(() => {});
+    const groups = V.items().map(g => ({ ...g, items: g.items.filter(canItem) })).filter(g => g.items.length);
+    let html = '';
+    if (!groups.length && !App.user.admin) html += '<div class="empty">Tài khoản của bạn chưa được cấp quyền mục nào. Hãy liên hệ quản trị viên.</div>';
+    html += groups.map(g => `<section class="grp"><h2>${esc(g.label)} <span class="cnt">${g.items.length}</span></h2>
+      <div class="tiles">${g.items.map(it => `<a class="tile" href="#/i/${enc(it.key)}"><span class="ic">${it.icon || '📁'}</span><span class="tl">${esc(it.label)}</span></a>`).join('')}</div></section>`).join('');
+    if (App.user.admin) html += `<section class="grp"><h2>Quản trị</h2><div class="tiles">
+      <a class="tile" href="#/admin"><span class="ic">👥</span><span class="tl">Phân quyền</span></a>
+      <a class="tile" href="#/i/ALBUM"><span class="ic">🗃️</span><span class="tl">Quản lý album</span></a>
+      <a class="tile" href="#/settings"><span class="ic">⚙️</span><span class="tl">Cài đặt</span></a></div></section>`;
+    App.main.innerHTML = html;
+  };
+
+  // ---------------- DANH SÁCH ----------------
+  V.list = async key => {
+    const it = V.findItem(key);
+    if (!it || !canItem(it)) return App.notFound();
+    if (it.type === 'dash') return Dash.render(it);
+    const t = it.table;
+    App.head(it.label, { back: true });
+    App.loading();
+    await DB.loadDeps(t);
+    const st = (V.state[key] = V.state[key] || { q: '' });
+    const canAdd = App.user.admin || (it.album ? Perm.rank(quyen()[it.perm]) === 2 : tableLv(t) === 2);
+    const addHref = `#/f/${t}/new` + (it.album ? '?Album=' + enc(it.album) : '');
+    App.main.innerHTML = `<div class="toolbar"><input class="search" type="search" placeholder="Tìm trong ${esc(it.label)}…" value="${esc(st.q)}">
+      ${canAdd ? `<a class="btn" href="${addHref}">＋ Thêm</a>` : ''}</div><div id="lst"></div>`;
+    const draw = () => {
+      const rows = V.filterRows(it, st.q);
+      document.getElementById('lst').innerHTML = `<div class="muted small count">${rows.length} mục</div>` + V.renderRows(t, rows);
+      V.hydrate(App.main);
+    };
+    App.main.querySelector('.search').oninput = e => { st.q = e.target.value; draw(); };
+    draw();
+  };
+
+  V.filterRows = (it, query) => {
+    const t = it.table, def = TT()[t];
+    let rows = DB.rows(t);
+    if (it.album) rows = rows.filter(r => r.Album === it.album);
+    if (query) {
+      const nq = U.norm(query);
+      const fs = def.fields.filter(f => !f.enc && f.t !== 'image' && f.t !== 'file');
+      rows = rows.filter(r => U.norm([DB.title(t, r), DB.sub(t, r), ...fs.map(f =>
+        f.t === 'ref' ? DB.title(f.ref, DB.get(f.ref, r[f.n])) : DB.val(t, r, f.n))].join(' ')).includes(nq));
+    }
+    return rows;
+  };
+
+  function cmp(a, b, type) {
+    if (type === 'date' || type === 'datetime' || type === 'expiry') {
+      const x = U.parseDate(a), y = U.parseDate(b);
+      return (x ? x.getTime() : -Infinity) - (y ? y.getTime() : -Infinity) || 0;
+    }
+    if (type === 'number' || type === 'price') return U.num(a) - U.num(b);
+    return String(a ?? '').localeCompare(String(b ?? ''), 'vi', { numeric: true });
+  }
+
+  function groupValue(t, r, g) {
+    const f = DB.field(t, g), v = DB.val(t, r, g);
+    if (f && f.t === 'ref') { const rr = DB.get(f.ref, v); return rr ? DB.title(f.ref, rr) : (v || ''); }
+    return v == null ? '' : String(v);
+  }
+
+  function rowHtml(t, r) {
+    const def = TT()[t], L = def.list || {};
+    const meta = (L.cols || []).map(c => {
+      const f = DB.field(t, c); if (!f) return '';
+      const v = f.enc ? (r[c] ? '••••••' : '') : DB.show(t, r, c, true);
+      return v ? `<span><i>${esc(f.l)}:</i> ${v}</span>` : '';
+    }).filter(Boolean).join('');
+    const sub = DB.sub(t, r);
+    const img = def.img && r[def.img] ? V.imgTag(t, r, def.img) : '';
+    return `<a class="row" href="#/r/${t}/${enc(DB.keyOf(t, r))}">${img}
+      <div class="row-main"><div class="row-title">${esc(DB.title(t, r))}</div>
+      ${sub ? `<div class="row-sub">${esc(sub)}</div>` : ''}${meta ? `<div class="row-meta">${meta}</div>` : ''}</div>
+      ${V.badgeHtml(DB.badge(t, r))}</a>`;
+  }
+
+  V.renderRows = (t, rows, opts = {}) => {
+    const def = TT()[t], L = def.list || {};
+    if (!rows.length) return '<div class="empty">Chưa có dữ liệu</div>';
+    rows = rows.slice();
+    if (L.sort) { const f = DB.field(t, L.sort); rows.sort((a, b) => cmp(DB.val(t, a, L.sort), DB.val(t, b, L.sort), f && f.t) * (L.desc ? -1 : 1)); }
+
+    if (L.type === 'gallery' && !opts.flat) {
+      return `<div class="gallery">${rows.map(r => `<a class="ph" href="#/r/${t}/${enc(DB.keyOf(t, r))}">
+        ${r.Hinh_anh ? V.imgTag(t, r, 'Hinh_anh') : '<span class="noimg th">🖼️</span>'}
+        ${r.Mo_ta ? `<span class="cap">${esc(r.Mo_ta)}</span>` : ''}</a>`).join('')}</div>`;
+    }
+    if (L.type === 'calendar' && !opts.flat) {
+      const now = U.parseDate(U.today());
+      const up = rows.filter(r => (U.parseDate(r.NgayKetThuc || r.NgayBatDau) || 0) >= now);
+      const past = rows.filter(r => !up.includes(r)).reverse();
+      const sec = (title, rs) => rs.length ? `<details class="lgrp" open><summary>${title} <span class="cnt">${rs.length}</span></summary>${rs.map(r => rowHtml(t, r)).join('')}</details>` : '';
+      return sec('Sắp tới', up) + sec('Đã qua', past);
+    }
+    if (L.group && !opts.flat) {
+      const groups = new Map();
+      rows.forEach(r => { const g = groupValue(t, r, L.group); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
+      const f = DB.field(t, L.group);
+      const order = L.groupOrder || (f && f.opts) || null;
+      const keys = [...groups.keys()].sort((a, b) => {
+        if (order) { const ia = order.indexOf(a), ib = order.indexOf(b); if (ia !== ib) return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); }
+        return a.localeCompare(b, 'vi');
+      });
+      return keys.map(g => `<details class="lgrp" open><summary>${esc(g || '(trống)')} <span class="cnt">${groups.get(g).length}</span></summary>
+        ${groups.get(g).map(r => rowHtml(t, r)).join('')}</details>`).join('');
+    }
+    return `<div class="rows">${rows.map(r => rowHtml(t, r)).join('')}</div>`;
+  };
+
+  // ---------------- CHI TIẾT ----------------
+  V.detail = async (t, key) => {
+    const def = TT()[t];
+    if (!def) return App.notFound();
+    App.head(def.label, { back: true });
+    App.loading();
+    await DB.loadDeps(t, true);
+    const r = DB.get(t, key);
+    if (!r) { App.main.innerHTML = '<div class="empty">Không tìm thấy bản ghi (có thể đã bị xoá hoặc bạn không có quyền xem).</div>'; return; }
+    const lv = rowLv(t, r);
+    const imgs = def.fields.filter(f => f.t === 'image' && r[f.n]);
+    let html = '<div class="card detail">';
+    if (imgs.length) html += `<div class="dimgs">${imgs.map(f => `<figure>${V.imgTag(t, r, f.n, 'big')}<figcaption>${esc(f.l)}</figcaption></figure>`).join('')}</div>`;
+    html += `<h2 class="dtitle">${esc(DB.title(t, r))} ${V.badgeHtml(DB.badge(t, r))}</h2><dl>`;
+    html += def.fields.filter(f => f.t !== 'image').map(f => {
+      let v;
+      if (f.enc) {
+        v = r[f.n] ? `<span class="secret" data-enc="${esc(f.n)}">••••••••</span>
+          <button class="btn sm ghost" data-reveal="${esc(f.n)}">👁 Hiện</button>
+          ${Vault.isEnc(r[f.n]) ? '' : '<span class="badge warn" title="Giá trị này đang lưu dạng chữ thường">chưa mã hoá</span>'}` : '';
+      } else if (f.t === 'file') {
+        v = r[f.n] ? `<button class="btn sm ghost" data-file="${esc(f.n)}">📎 Mở file</button> <span class="muted small">${esc(fileName(r[f.n]))}</span>` : '';
+      } else v = DB.show(t, r, f.n);
+      return v === '' || v == null ? '' : `<dt>${esc(f.l)}</dt><dd>${v}</dd>`;
+    }).join('') + '</dl>';
+    if (lv >= 2) html += `<div class="row-end"><button class="btn danger ghost" data-del>🗑 Xoá</button><a class="btn" href="#/f/${t}/${enc(key)}">✏️ Sửa</a></div>`;
+    html += '</div>';
+
+    for (const rel of def.related || []) {
+      if (tableLv(rel.t) < 1) continue;
+      const rows = DB.rows(rel.t).filter(x => String(x[rel.fk]) === String(key));
+      html += `<section class="card rel"><div class="rel-h"><h3>${esc(rel.l)} <span class="cnt">${rows.length}</span></h3>
+        ${tableLv(rel.t) === 2 ? `<a class="btn sm" href="#/f/${rel.t}/new?${enc(rel.fk)}=${enc(key)}">＋ Thêm</a>` : ''}</div>
+        ${rows.length ? V.renderRows(rel.t, rows, { flat: true }) : '<div class="muted small">Chưa có</div>'}</section>`;
+    }
+    App.main.innerHTML = html;
+    V.hydrate(App.main);
+
+    App.main.querySelectorAll('[data-file]').forEach(b => b.onclick = () => Files.open(t, key, b.dataset.file));
+    App.main.querySelectorAll('[data-reveal]').forEach(btn => btn.onclick = async () => {
+      const n = btn.dataset.reveal, span = App.main.querySelector(`[data-enc="${CSS.escape(n)}"]`);
+      if (btn.dataset.shown) { span.textContent = '••••••••'; btn.textContent = '👁 Hiện'; delete btn.dataset.shown; return; }
+      let val = r[n];
+      if (Vault.isEnc(val)) { if (!(await Vault.ensureOpen())) return; val = await Vault.dec(val); }
+      span.textContent = val; btn.textContent = '🙈 Ẩn'; btn.dataset.shown = '1';
+      if (navigator.clipboard && !btn.nextElementSibling?.dataset?.copy) {
+        const c = Object.assign(document.createElement('button'), { className: 'btn sm ghost', textContent: '📋 Sao chép' });
+        c.dataset.copy = '1';
+        c.onclick = () => navigator.clipboard.writeText(span.textContent).then(() => U.toast('Đã sao chép'));
+        btn.after(c);
+      }
+      setTimeout(() => { if (btn.isConnected && btn.dataset.shown) btn.click(); }, 30000);
+    });
+    const del = App.main.querySelector('[data-del]');
+    if (del) del.onclick = async () => {
+      if (!(await U.confirm('Xoá "' + DB.title(t, r) + '"? Thao tác này không hoàn tác được.'))) return;
+      try { await DB.remove(t, key); U.toast('Đã xoá', 'ok'); history.back(); } catch (e) { U.toast(e.message, 'err'); }
+    };
+  };
+
+  // ---------------- FORM THÊM / SỬA ----------------
+  function fieldInput(t, f, r, isNew, def) {
+    const v = r[f.n] ?? '';
+    const nm = `name="${esc(f.n)}"`;
+    const ro = def.keyEditable && f.n === def.key && !isNew ? 'readonly' : '';
+    let input;
+    switch (f.t) {
+      case 'longtext': input = `<textarea ${nm} rows="3">${esc(v)}</textarea>`; break;
+      case 'number': case 'price':
+        input = `<input ${nm} type="number" step="any" inputmode="decimal" value="${v === '' ? '' : esc(U.num(v))}">` +
+          (f.t === 'price' ? `<small class="hint" data-money="${esc(f.n)}">${v !== '' ? U.money(v) : ''}</small>` : '');
+        break;
+      case 'date': input = `<input ${nm} type="date" value="${esc(U.isoOf(v))}">`; break;
+      case 'datetime': input = `<input ${nm} type="datetime-local" value="${esc(U.toLocalInput(v))}">`; break;
+      case 'expiry': {
+        const no = v !== '' && !U.parseDate(v);
+        input = `<div class="inl"><input ${nm} type="date" value="${esc(U.isoOf(v))}" ${no ? 'disabled' : ''}>
+          <label class="chk"><input type="checkbox" data-noexp="${esc(f.n)}" ${no ? 'checked' : ''}> Không thời hạn</label></div>`;
+        break;
+      }
+      case 'enum':
+        if (f.other) input = `<input ${nm} list="dl_${esc(f.n)}" value="${esc(v)}" placeholder="Chọn hoặc gõ"><datalist id="dl_${esc(f.n)}">${f.opts.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+        else input = `<select ${nm}><option value=""></option>${[...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+        break;
+      case 'ref': {
+        const rows = DB.rows(f.ref).slice().sort((a, b) => DB.title(f.ref, a).localeCompare(DB.title(f.ref, b), 'vi', { numeric: true }));
+        input = `<select ${nm}><option value=""></option>${rows.map(x => { const k = String(DB.keyOf(f.ref, x)); return `<option value="${esc(k)}" ${k === String(v) ? 'selected' : ''}>${esc(DB.title(f.ref, x))}</option>`; }).join('')}
+          ${v && !DB.get(f.ref, v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : ''}</select>`;
+        break;
+      }
+      case 'image':
+        input = `<div class="up">${v && !isNew ? V.imgTag(t, r, f.n, 'th') + `<label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá ảnh</label>` : ''}
+          <input type="file" accept="image/*" data-up="${esc(f.n)}"></div>`;
+        break;
+      case 'file':
+        input = `<div class="up">${v ? `<span class="muted small">📎 ${esc(fileName(v))}</span><label class="chk"><input type="checkbox" data-clear="${esc(f.n)}"> Xoá file</label>` : ''}
+          <input type="file" data-up="${esc(f.n)}"></div>`;
+        break;
+      default: {
+        if (f.enc) {
+          const isE = Vault.isEnc(v);
+          input = `<div class="inl"><input ${nm} type="password" autocomplete="new-password" data-enc="1" value="${isE ? '' : esc(v)}"
+            placeholder="${isE ? '•••••••• đã mã hoá — để trống nếu giữ nguyên' : ''}">
+            <button type="button" class="btn sm ghost" data-eye="${esc(f.n)}" ${isE ? 'data-dec="1"' : ''}>👁</button></div>`;
+        } else {
+          const type = { email: 'email', url: 'url', phone: 'tel' }[f.t] || 'text';
+          input = `<input ${nm} type="${type}" value="${esc(v)}" ${ro}>`;
+        }
+      }
+    }
+    return `<div class="fld"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}</div>`;
+  }
+
+  V.form = async (t, key, params) => {
+    const def = TT()[t];
+    if (!def) return App.notFound();
+    const isNew = key === 'new';
+    App.head((isNew ? 'Thêm ' : 'Sửa ') + def.label.toLowerCase(), { back: true });
+    App.loading();
+    await DB.loadDeps(t);
+    const old = isNew ? null : DB.get(t, key);
+    if (!isNew && !old) { App.main.innerHTML = '<div class="empty">Không tìm thấy bản ghi.</div>'; return; }
+    const r = old ? { ...old } : {};
+    const fields = def.fields.filter(f => !f.v);
+    if (isNew) fields.forEach(f => {
+      if (params.has(f.n)) r[f.n] = params.get(f.n);
+      else if (f.init === 'today') r[f.n] = U.today();
+      else if (f.init != null) r[f.n] = f.init;
+    });
+
+    App.main.innerHTML = `<form class="card form" novalidate>${fields.map(f => fieldInput(t, f, r, isNew, def)).join('')}
+      <div class="row-end sticky"><button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">💾 Lưu</button></div></form>`;
+    const form = App.main.querySelector('form');
+    V.hydrate(form);
+    const q = sel => form.querySelector(sel);
+    form.querySelector('[data-cancel]').onclick = () => history.back();
+    form.querySelectorAll('[data-money]').forEach(h => {
+      const inp = q(`[name="${CSS.escape(h.dataset.money)}"]`);
+      inp.oninput = () => { h.textContent = inp.value ? U.money(inp.value) : ''; };
+    });
+    form.querySelectorAll('[data-noexp]').forEach(c => {
+      c.onchange = () => { const d = q(`[name="${CSS.escape(c.dataset.noexp)}"]`); d.disabled = c.checked; if (c.checked) d.value = ''; };
+    });
+    form.querySelectorAll('[data-eye]').forEach(b => b.onclick = async () => {
+      const inp = q(`[name="${CSS.escape(b.dataset.eye)}"]`);
+      if (b.dataset.dec && !inp.value) {
+        if (!(await Vault.ensureOpen())) return;
+        inp.value = await Vault.dec(old[b.dataset.eye]); delete b.dataset.dec;
+      }
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const out = {}, missing = [], uploads = [];
+      for (const f of fields) {
+        const el = q(`[name="${CSS.escape(f.n)}"]`);
+        let val;
+        if (f.t === 'image' || f.t === 'file') {
+          const up = q(`[data-up="${CSS.escape(f.n)}"]`), clr = q(`[data-clear="${CSS.escape(f.n)}"]`);
+          if (up.files[0]) { uploads.push([f, up.files[0]]); val = r[f.n] || 'x'; }
+          else if (clr && clr.checked) val = '';
+          else { if (f.req && !r[f.n]) missing.push(f.l); continue; }
+        } else if (f.t === 'expiry') {
+          val = q(`[data-noexp="${CSS.escape(f.n)}"]`).checked ? 'Không thời hạn' : el.value;
+        } else if (f.enc) {
+          if (el.value === '' && Vault.isEnc(r[f.n])) continue;   // giữ nguyên giá trị đã mã hoá
+          val = el.value;
+        } else if (f.t === 'number' || f.t === 'price') val = el.value === '' ? '' : Number(el.value);
+        else if (f.t === 'datetime') val = el.value ? el.value.replace('T', ' ') : '';
+        else val = el.value.trim();
+        if (f.req && (val === '' || val == null)) missing.push(f.l);
+        out[f.n] = val;
+      }
+      if (missing.length) return U.toast('Chưa nhập: ' + missing.join(', '), 'err');
+      const k = isNew ? (def.keyEditable ? out[def.key] : U.uid()) : key;
+      out[def.key] = k;
+
+      const btn = q('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Đang lưu…';
+      try {
+        // Mã hoá các cột bảo mật trước khi gửi đi
+        for (const f of fields.filter(f => f.enc)) {
+          const v = out[f.n];
+          if (typeof v !== 'string' || v === '' || Vault.isEnc(v)) continue;
+          if (Vault.isSet()) {
+            if (!(await Vault.ensureOpen())) throw new Error('Cần mở khoá mật khẩu chủ để lưu dữ liệu bảo mật');
+            out[f.n] = await Vault.enc(v);
+          } else if (!(await U.confirm('Chưa đặt mật khẩu chủ nên "' + f.l + '" sẽ lưu dạng chữ thường. Vẫn lưu?'))) throw new Error('Đã huỷ');
+        }
+        for (const [f, file] of uploads) {
+          if (file.size > 25 * 1024 * 1024) throw new Error(f.l + ': file lớn hơn 25 MB');
+          const isImg = f.t === 'image' && /^image\/(jpeg|png|webp|heic|heif)/.test(file.type);
+          const du = isImg ? await U.resizeImage(file, window.APP_CONFIG.mode === 'demo' ? 900 : 1600) : await U.readDataUrl(file);
+          const name = isImg ? file.name.replace(/\.[^.]+$/, '') + '.jpg' : file.name;
+          btn.textContent = 'Đang tải ' + f.l.toLowerCase() + '…';
+          out[f.n] = await API.upload(t, f.n, name, du);
+        }
+        if (isNew) await DB.add(t, out); else await DB.update(t, out);
+        Files.forget(t, k);
+        U.toast('Đã lưu', 'ok');
+        location.replace('#/r/' + t + '/' + enc(k));
+      } catch (err) {
+        if (err.message !== 'Đã huỷ') U.toast(err.message, 'err');
+        btn.disabled = false; btn.textContent = '💾 Lưu';
+      }
+    };
+  };
+})();
