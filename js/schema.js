@@ -236,7 +236,7 @@
           return a > 0 ? 'Họ đang nợ mình' : b > 0 ? 'Mình đang nợ họ' : 'Đã tất toán';
         } }
     ],
-    list: { cols: ['HoNoMinh', 'MinhNoHo'], avatar: 'initials' },
+    list: { avatar: 'initials' },   // số nợ đã hiện ở nhãn màu bên phải
     detail: { stats: ['HoNoMinh', 'MinhNoHo'], hide: ['TrangThaiTongQuat'] },
     badge: (r, db) => {
       const a = debt(db, r.ID, 'Cho vay', 'Họ trả mình'), b = debt(db, r.ID, 'Đi mượn', 'Mình trả họ');

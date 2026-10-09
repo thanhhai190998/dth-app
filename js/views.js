@@ -274,7 +274,7 @@
 
   function rowHtml(t, r, meta) {
     const def = TT()[t], L = def.list || {};
-    const cols = (L.cols || []).map(c => {
+    const cols = (meta.compact ? [] : L.cols || []).map(c => {
       const f = DB.field(t, c); if (!f || c === meta.skip) return '';
       const v = f.enc ? (r[c] ? '••••••' : '') : DB.show(t, r, c, true);
       return v ? `<span><i>${esc(f.l)}</i> ${v}</span>` : '';
@@ -289,12 +289,12 @@
   V.renderRows = (t, rows, opts = {}) => {
     const def = TT()[t], L = def.list || {};
     if (!rows.length) return '<div class="empty">Chưa có dữ liệu</div>';
-    const meta = Object.assign({}, opts.item ? { ic: opts.item.ic || 'folder', color: opts.item.color || 'var(--g7)' } : metaOf(t), { skip: opts.skip });
+    const meta = Object.assign({}, opts.item ? { ic: opts.item.ic || 'folder', color: opts.item.color || 'var(--g7)' } : metaOf(t), { skip: opts.skip, compact: opts.compact });
     const row = r => rowHtml(t, r, meta);
     rows = rows.slice();
     const sb = opts.sortBy || (L.sort ? (L.desc ? 'd-desc' : 'def') : null);
     if (sb === 'az') rows.sort((a, b) => DB.title(t, a).localeCompare(DB.title(t, b), 'vi', { numeric: true }));
-    else if (L.sort) {
+    else if (sb !== 'none' && L.sort) {
       const f = DB.field(t, L.sort), dir = sb === 'd-desc' || (sb !== 'd-asc' && L.desc) ? -1 : 1;
       rows.sort((a, b) => cmp(DB.val(t, a, L.sort), DB.val(t, b, L.sort), f && f.t) * dir);
     }
