@@ -212,8 +212,53 @@ dt { color: var(--muted); font-size: 13.5px; }
 dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 @media (max-width: 520px) { dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 8px; } }
 .secret { font-family: ui-monospace, Consolas, monospace; letter-spacing: 1px; }
-.rel-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.rel .row { padding-left: 4px; padding-right: 4px; }
+
+/* ---- Chi tiết: phần đầu ---- */
+.dhero { padding: 16px; border-radius: 18px; }
+.dh-top { display: flex; gap: 14px; align-items: flex-start; }
+.lead.big { width: 56px; height: 56px; border-radius: 16px; }
+.lead.big .ico { width: 26px; height: 26px; }
+.lead.big.tx { font-size: 16px; }
+.lead.big.av { border-radius: 50%; font-size: 19px; }
+.dh-main { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.dhero .dtitle { font-size: 20px; line-height: 1.25; margin: 0; word-break: break-word; }
+.dsub { color: var(--muted); font-size: 14px; }
+.dh-act { display: flex; gap: 6px; flex: none; }
+.ibtn2 { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; cursor: pointer;
+  background: color-mix(in srgb, var(--pri) 12%, transparent); color: var(--pri); border: 0; }
+.ibtn2.danger { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
+.ibtn2:hover { filter: brightness(1.15); }
+.dhero .dimgs { margin: 14px 0 0; }
+.dstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; margin-top: 14px; }
+.dstat { display: grid; gap: 2px; align-content: start; justify-items: start; min-width: 0; padding: 9px 10px; border-radius: 12px; background: var(--hover); }
+.sl { font-size: 12px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv { font-size: 14.5px; font-weight: 700; }
+.dstat .badge { margin-top: 2px; }
+
+/* ---- Chi tiết: danh sách thông tin ---- */
+.dfields { padding: 4px 16px; }
+.frow { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); }
+.frow:first-child { border-top: 0; }
+.frow .fk { color: var(--muted); font-size: 13.5px; flex: none; max-width: 45%; }
+.frow .fv { text-align: right; word-break: break-word; display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+.frow.stack { display: grid; gap: 4px; }
+.frow.stack .fk { max-width: none; }
+.frow.stack .fv { text-align: left; justify-content: flex-start; }
+.ibtn3 { width: 32px; height: 32px; border-radius: 10px; display: inline-grid; place-items: center; cursor: pointer; flex: none;
+  background: var(--hover); color: var(--pri); border: 0; }
+.ibtn3 .ico { width: 17px; height: 17px; }
+.fchip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 12px; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: 13.5px; color: var(--text); background: var(--hover); border: 1px solid var(--line); }
+.fchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fchip .ico { color: var(--pri); }
+
+/* ---- Chi tiết: bảng con ---- */
+.rel-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rel-h h3 { margin: 0; font-size: 15.5px; }
+.rel-h .btn { margin-left: auto; }
+.rel .rows, .rel .row { border-radius: 12px; }
+.rel .rows { box-shadow: none; }
+.rel-empty { padding: 4px 2px 6px; }
 .lightbox { position: fixed; inset: 0; z-index: 60; background: #000e; display: flex; align-items: center; justify-content: center; color: #fff; cursor: zoom-out; }
 .lightbox img { max-width: 100%; max-height: 100%; }
 

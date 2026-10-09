@@ -8,6 +8,7 @@
 //    image | file | email | url | phone
 //  Danh sách (list): group = nhóm theo cột, filter = cột làm nút lọc nhanh (mặc định = group),
 //    sort/desc = sắp xếp mặc định, cols = cột hiện thêm trong mỗi dòng, avatar: 'initials' = chữ cái đầu
+//  Chi tiết (detail): stats = các mốc làm nổi bật ở đầu trang, hide = cột không hiện (vd trùng với nhãn tình trạng)
 //  Thuộc tính khác: req (bắt buộc), init ('today' hoặc giá trị mặc định),
 //    enc (mã hoá bằng mật khẩu chủ), v (cột ảo — hàm tính, không lưu vào Sheet)
 //
@@ -79,6 +80,7 @@
       { n: 'HanConLai', l: 'Còn hạn', t: 'text', v: r => expiryText(r.NgayHetHan) }
     ],
     list: { group: 'LoaiBangCap', sort: 'NgayCap', cols: ['Nam_TN'] },
+    detail: { stats: ['NgayCap', 'NgayHetHan', 'HanConLai'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
 
@@ -142,7 +144,8 @@
       { n: 'Ngay_ky', l: 'Ngày ký hợp đồng', t: 'date' },
       { n: 'File_HD', l: 'File hợp đồng', t: 'file' }
     ],
-    list: { sort: 'Ngay_ky', desc: true, cols: ['Loai_hop_dong', 'Ngay_ky'] }
+    list: { sort: 'Ngay_ky', desc: true, cols: ['Loai_hop_dong', 'Ngay_ky'] },
+    detail: { stats: ['Ngay_ky', 'Loai_hop_dong'] }
   };
 
   T.Quyet_dinh = {
@@ -158,6 +161,7 @@
       { n: 'HinhAnh', l: 'Hình ảnh', t: 'image' }
     ],
     list: { sort: 'NgayCap', desc: true, cols: ['NgayCap'] },
+    detail: { stats: ['NgayCap', 'NgayHetHan'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
 
@@ -174,6 +178,7 @@
       { n: 'HanConLai', l: 'Còn hạn', t: 'text', v: r => expiryText(r.NgayHetHan) }
     ],
     list: { sort: 'NgayCap', cols: ['NgayCap', 'NgayHetHan'] },
+    detail: { stats: ['NgayCap', 'NgayHetHan', 'HanConLai'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
 
@@ -196,6 +201,7 @@
         } }
     ],
     list: { group: 'LoaiTaiSan', cols: ['SoDu_TinhToan'] },
+    detail: { stats: ['SoDu_TinhToan', 'SoDuHienTai'] },
     related: [{ t: 'GIAODICH_THUCHI', fk: 'TaiKhoanID', l: 'Giao dịch thu chi' }, { t: 'GIAODICH_VAY_MUON', fk: 'TaiKhoanID', l: 'Giao dịch vay/mượn' }]
   };
 
@@ -212,6 +218,7 @@
       { n: 'ThangNam', l: 'Tháng', t: 'text', v: r => U.month(r.NgayGD) }
     ],
     list: { group: 'Loai', sort: 'NgayGD', desc: true, cols: ['SoTien', 'NgayGD', 'TaiKhoanID'] },
+    detail: { stats: ['SoTien', 'NgayGD', 'Loai'], hide: ['ThangNam'] },
     badge: r => r.Loai === 'Thu' ? { text: '+ ' + U.money(r.SoTien), cls: 'ok' } : { text: '− ' + U.money(r.SoTien), cls: 'bad' }
   };
 
@@ -230,6 +237,7 @@
         } }
     ],
     list: { cols: ['HoNoMinh', 'MinhNoHo'], avatar: 'initials' },
+    detail: { stats: ['HoNoMinh', 'MinhNoHo'], hide: ['TrangThaiTongQuat'] },
     badge: (r, db) => {
       const a = debt(db, r.ID, 'Cho vay', 'Họ trả mình'), b = debt(db, r.ID, 'Đi mượn', 'Mình trả họ');
       return a > 0 ? { text: 'Nợ mình ' + U.money(a), cls: 'bad' } : b > 0 ? { text: 'Mình nợ ' + U.money(b), cls: 'warn' } : { text: 'Đã tất toán', cls: 'ok' };
@@ -249,7 +257,8 @@
       { n: 'TaiKhoanID', l: 'Tài khoản nguồn', t: 'ref', ref: 'TAIKHOAN_TAICHINH' },
       { n: 'GhiChu', l: 'Nội dung', t: 'text' }
     ],
-    list: { group: 'NguoiID', sort: 'NgayGD', desc: true, cols: ['NgayGD', 'NgayHenTra'] }
+    list: { group: 'NguoiID', sort: 'NgayGD', desc: true, cols: ['NgayGD', 'NgayHenTra'] },
+    detail: { stats: ['SoTien', 'NgayGD', 'NgayHenTra'] }
   };
 
   // ---------------- 4. CÔNG VIỆC ----------------
@@ -302,6 +311,7 @@
       { n: 'Tinh_trang_xl', l: 'Tình trạng', t: 'text', v: r => r.Ngay_hoan_thanh ? 'Đã xử lý' : 'Đang xử lý' }
     ],
     list: { group: 'Tinh_trang_xl', groupOrder: ['Đang xử lý', 'Đã xử lý'], filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Date_Incoming', desc: true, cols: ['Date_Incoming', 'Deadline'] },
+    detail: { stats: ['Date_Incoming', 'Deadline', 'Ngay_hoan_thanh'], hide: ['TrangThai', 'Tinh_trang_xl'] },
     // Đang xử lý: đếm ngược số ngày đến hạn; đã xử lý: đúng hạn / trễ hạn
     badge: (r, db) => {
       if (r.Ngay_hoan_thanh) { const s = transStatus(r, db); return { text: s, cls: s === 'Trễ hạn' ? 'warn' : 'ok' }; }
@@ -355,6 +365,7 @@
       { n: 'Ghi_chu', l: 'Ghi chú', t: 'longtext' }
     ],
     list: { group: 'Trang_thai', sort: 'Ngay_giao', desc: true, cols: ['Ngay_giao', 'Nguoi_giao'] },
+    detail: { stats: ['Ngay_giao', 'Ngay_hoan_thanh'] },
     badge: r => r.Trang_thai === 'Đang xử lý' ? { text: 'Đang xử lý', cls: 'bad' } : { text: r.Trang_thai, cls: 'ok' }
   };
 
@@ -373,6 +384,7 @@
       { n: 'File', l: 'File đính kèm', t: 'file' }
     ],
     list: { group: 'Phan_loai', filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Ngay_thuc_hien', desc: true, cols: ['So_luong', 'Ngay_thuc_hien'] },
+    detail: { stats: ['So_luong', 'Ngay_thuc_hien', 'Ngay_hoan_thanh'] },
     badge: r => r.Ngay_hoan_thanh ? { text: 'Hoàn thành', cls: 'ok' } : { text: 'Chưa xong', cls: 'bad' }
   };
 
@@ -399,7 +411,8 @@
       { n: 'NgayBatDau', l: 'Bắt đầu', t: 'datetime', req: true },
       { n: 'NgayKetThuc', l: 'Kết thúc', t: 'datetime' }
     ],
-    list: { type: 'calendar', sort: 'NgayBatDau' }
+    list: { type: 'calendar', sort: 'NgayBatDau' },
+    detail: { stats: ['NgayBatDau', 'NgayKetThuc'] }
   };
 
   // ---------------- 5. HÌNH ẢNH (gộp 7 bảng ảnh cũ thành 1 bảng + album) ----------------
@@ -441,6 +454,7 @@
       { n: 'GhiChu', l: 'Ghi chú', t: 'text' }
     ],
     list: { group: 'LoaiTaiKhoan', sort: 'TenDichVu', cols: ['NgayDoiGanNhat'] },
+    detail: { stats: ['NgayDoiGanNhat', 'TrangThai'] },
     badge: r => {
       if (r.TrangThai === 'Dừng hoạt động') return { text: 'Dừng', cls: 'muted' };
       const d = r.NgayDoiGanNhat && U.daysBetween(r.NgayDoiGanNhat, U.today());
@@ -470,7 +484,7 @@
   function expiryText(v) {
     if (!v) return '';
     const n = expiryDays(v);
-    if (n == null) return String(v);
+    if (n == null) return '';   // "Không thời hạn" đã hiện ở cột Ngày hết hạn
     return n < 0 ? 'Đã hết hạn ' + (-n) + ' ngày' : 'Còn ' + n + ' ngày';
   }
   function expiryBadge(v) {

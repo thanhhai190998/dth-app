@@ -262,20 +262,25 @@
   const TONES = ['var(--g0)', 'var(--g3)', 'var(--g4)', 'var(--g1)', 'var(--g5)', 'var(--g2)', 'var(--g7)'];
   const toneOf = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TONES[h % TONES.length]; };
 
+  // Ô đầu dòng: ảnh → giá trị ngắn (vd mã gói) → chữ cái đầu → biểu tượng mục
+  function leadHtml(t, r, meta, cls = '', noImg = false) {
+    const def = TT()[t], L = def.list || {};
+    const leadVal = L.lead && r[L.lead] ? String(r[L.lead]).slice(0, 5) : '';
+    if (!noImg && def.img && r[def.img]) return V.imgTag(t, r, def.img);
+    if (leadVal) return `<span class="lead tx ${cls}" style="--gc:${toneOf(leadVal)}">${esc(leadVal)}</span>`;
+    if (L.avatar === 'initials') return `<span class="lead av ${cls}" style="--gc:${meta.color}">${esc(initials(DB.title(t, r)))}</span>`;
+    return `<span class="lead ${cls}" style="--gc:${meta.color}">${Icon(meta.ic)}</span>`;
+  }
+
   function rowHtml(t, r, meta) {
     const def = TT()[t], L = def.list || {};
     const cols = (L.cols || []).map(c => {
-      const f = DB.field(t, c); if (!f) return '';
+      const f = DB.field(t, c); if (!f || c === meta.skip) return '';
       const v = f.enc ? (r[c] ? '••••••' : '') : DB.show(t, r, c, true);
       return v ? `<span><i>${esc(f.l)}</i> ${v}</span>` : '';
     }).filter(Boolean).join('');
     const sub = DB.sub(t, r), title = DB.title(t, r), b = DB.badge(t, r);
-    const leadVal = L.lead && r[L.lead] ? String(r[L.lead]).slice(0, 5) : '';
-    const lead = def.img && r[def.img] ? V.imgTag(t, r, def.img)
-      : leadVal ? `<span class="lead tx" style="--gc:${toneOf(leadVal)}">${esc(leadVal)}</span>`
-      : L.avatar === 'initials' ? `<span class="lead av" style="--gc:${meta.color}">${esc(initials(title))}</span>`
-      : `<span class="lead" style="--gc:${meta.color}">${Icon(meta.ic)}</span>`;
-    return `<a class="row" href="#/r/${t}/${enc(DB.keyOf(t, r))}" ${b && b.cls ? `data-tone="${esc(b.cls)}"` : ''}>${lead}
+    return `<a class="row" href="#/r/${t}/${enc(DB.keyOf(t, r))}" ${b && b.cls ? `data-tone="${esc(b.cls)}"` : ''}>${leadHtml(t, r, meta)}
       <div class="row-main"><div class="row-title">${esc(title)}</div>
       ${sub ? `<div class="row-sub">${esc(sub)}</div>` : ''}${cols ? `<div class="row-meta">${cols}</div>` : ''}</div>
       ${V.badgeHtml(b)}</a>`;
@@ -284,7 +289,7 @@
   V.renderRows = (t, rows, opts = {}) => {
     const def = TT()[t], L = def.list || {};
     if (!rows.length) return '<div class="empty">Chưa có dữ liệu</div>';
-    const meta = opts.item ? { ic: opts.item.ic || 'folder', color: opts.item.color || 'var(--g7)' } : metaOf(t);
+    const meta = Object.assign({}, opts.item ? { ic: opts.item.ic || 'folder', color: opts.item.color || 'var(--g7)' } : metaOf(t), { skip: opts.skip });
     const row = r => rowHtml(t, r, meta);
     rows = rows.slice();
     const sb = opts.sortBy || (L.sort ? (L.desc ? 'd-desc' : 'def') : null);
@@ -325,31 +330,55 @@
     await DB.loadDeps(t, true);
     const r = DB.get(t, key);
     if (!r) { App.main.innerHTML = '<div class="empty">Không tìm thấy bản ghi (có thể đã bị xoá hoặc bạn không có quyền xem).</div>'; return; }
-    const lv = rowLv(t, r);
+    const lv = rowLv(t, r), D = def.detail || {}, meta = metaOf(t);
+    const title = DB.title(t, r), sub = DB.sub(t, r), badge = DB.badge(t, r);
     const imgs = def.fields.filter(f => f.t === 'image' && r[f.n]);
-    let html = '<div class="card detail">';
-    if (imgs.length) html += `<div class="dimgs">${imgs.map(f => `<figure>${V.imgTag(t, r, f.n, 'big')}<figcaption>${esc(f.l)}</figcaption></figure>`).join('')}</div>`;
-    html += `<h2 class="dtitle">${esc(DB.title(t, r))} ${V.badgeHtml(DB.badge(t, r))}</h2><dl>`;
-    html += def.fields.filter(f => f.t !== 'image').map(f => {
-      let v;
+    const stats = (D.stats || []).map(n => DB.field(t, n)).filter(f => f && !f.enc && DB.show(t, r, f.n) !== '');
+    const skip = new Set([...(D.hide || []), ...stats.map(f => f.n)]);
+
+    // Phần đầu: biểu tượng, tiêu đề, nhãn tình trạng, nút sửa/xoá, ảnh, các mốc quan trọng
+    let html = `<div class="card dhero" style="--gc:${meta.color}">
+      <div class="dh-top">${leadHtml(t, r, meta, 'big', true)}
+        <div class="dh-main"><h2 class="dtitle">${esc(title)}</h2>${sub ? `<div class="dsub">${esc(sub)}</div>` : ''}${V.badgeHtml(badge)}</div>
+        ${lv >= 2 ? `<div class="dh-act"><a class="ibtn2" href="#/f/${t}/${enc(key)}" title="Sửa">${Icon('edit')}</a>
+          <button class="ibtn2 danger" data-del title="Xoá">${Icon('trash')}</button></div>` : ''}
+      </div>
+      ${imgs.length ? `<div class="dimgs">${imgs.map(f => `<figure>${V.imgTag(t, r, f.n, 'big')}<figcaption>${esc(f.l)}</figcaption></figure>`).join('')}</div>` : ''}
+      ${stats.length ? `<div class="dstats">${stats.map(f => `<div class="dstat"><span class="sl">${esc(f.l)}</span><span class="sv">${DB.show(t, r, f.n, true)}</span></div>`).join('')}</div>` : ''}
+    </div>`;
+
+    // Các thông tin còn lại: nhãn bên trái, giá trị bên phải (giá trị dài thì xuống dòng)
+    const rowsHtml = def.fields.filter(f => f.t !== 'image' && !skip.has(f.n)).map(f => {
+      const raw = r[f.n];
+      let v, stack = false;
       if (f.enc) {
-        v = r[f.n] ? `<span class="secret" data-enc="${esc(f.n)}">••••••••</span>
-          <button class="btn sm ghost" data-reveal="${esc(f.n)}">👁 Hiện</button>
-          ${Vault.isEnc(r[f.n]) ? '' : '<span class="badge warn" title="Giá trị này đang lưu dạng chữ thường">chưa mã hoá</span>'}` : '';
+        if (!raw) return '';
+        v = `<span class="secret" data-enc="${esc(f.n)}">••••••••</span>
+          <button class="ibtn3" data-reveal="${esc(f.n)}" title="Hiện">${Icon('eye')}</button>
+          ${Vault.isEnc(raw) ? '' : '<span class="badge warn" title="Giá trị này đang lưu dạng chữ thường">chưa mã hoá</span>'}`;
       } else if (f.t === 'file') {
-        v = r[f.n] ? `<button class="btn sm ghost" data-file="${esc(f.n)}">📎 Mở file</button> <span class="muted small">${esc(fileName(r[f.n]))}</span>` : '';
-      } else v = DB.show(t, r, f.n);
-      return v === '' || v == null ? '' : `<dt>${esc(f.l)}</dt><dd>${v}</dd>`;
-    }).join('') + '</dl>';
-    if (lv >= 2) html += `<div class="row-end"><button class="btn danger ghost" data-del>🗑 Xoá</button><a class="btn" href="#/f/${t}/${enc(key)}">✏️ Sửa</a></div>`;
-    html += '</div>';
+        if (!raw) return '';
+        v = `<button class="fchip" data-file="${esc(f.n)}">${Icon('file')}<span>${esc(fileName(raw))}</span>${Icon('open', 'sm')}</button>`;
+      } else {
+        v = DB.show(t, r, f.n);
+        if (v === '' || v == null) return '';
+        if (String(DB.val(t, r, f.n)).trim() === title.trim()) return '';   // trùng tiêu đề → bỏ
+        if (f.t === 'phone') v += ` <a class="ibtn3" href="tel:${esc(String(raw).replace(/\s/g, ''))}" title="Gọi">${Icon('phone')}</a>`;
+        if (f.t === 'email') v += ` <a class="ibtn3" href="mailto:${esc(raw)}" title="Gửi email">${Icon('mail')}</a>`;
+        stack = f.t === 'longtext' || String(DB.val(t, r, f.n)).length > 38;
+      }
+      return `<div class="frow ${stack ? 'stack' : ''}"><span class="fk">${esc(f.l)}</span><span class="fv">${v}</span></div>`;
+    }).join('');
+    if (rowsHtml) html += `<div class="card dfields">${rowsHtml}</div>`;
 
     for (const rel of def.related || []) {
       if (tableLv(rel.t) < 1) continue;
       const rows = DB.rows(rel.t).filter(x => String(x[rel.fk]) === String(key));
-      html += `<section class="card rel"><div class="rel-h"><h3>${esc(rel.l)} <span class="cnt">${rows.length}</span></h3>
-        ${tableLv(rel.t) === 2 ? `<a class="btn sm" href="#/f/${rel.t}/new?${enc(rel.fk)}=${enc(key)}">＋ Thêm</a>` : ''}</div>
-        ${rows.length ? V.renderRows(rel.t, rows, { flat: true }) : '<div class="muted small">Chưa có</div>'}</section>`;
+      const rm = metaOf(rel.t);
+      html += `<section class="card rel"><div class="rel-h"><span class="gic" style="--gc:${rm.color}">${Icon(rm.ic)}</span>
+        <h3>${esc(rel.l)}</h3><span class="cnt">${rows.length}</span>
+        ${tableLv(rel.t) === 2 ? `<a class="btn sm" href="#/f/${rel.t}/new?${enc(rel.fk)}=${enc(key)}">${Icon('plus', 'sm')} Thêm</a>` : ''}</div>
+        ${rows.length ? V.renderRows(rel.t, rows, { flat: true, skip: rel.fk }) : '<div class="muted small rel-empty">Chưa có</div>'}</section>`;
     }
     App.main.innerHTML = html;
     V.hydrate(App.main);
@@ -357,12 +386,12 @@
     App.main.querySelectorAll('[data-file]').forEach(b => b.onclick = () => Files.open(t, key, b.dataset.file));
     App.main.querySelectorAll('[data-reveal]').forEach(btn => btn.onclick = async () => {
       const n = btn.dataset.reveal, span = App.main.querySelector(`[data-enc="${CSS.escape(n)}"]`);
-      if (btn.dataset.shown) { span.textContent = '••••••••'; btn.textContent = '👁 Hiện'; delete btn.dataset.shown; return; }
+      if (btn.dataset.shown) { span.textContent = '••••••••'; btn.innerHTML = Icon('eye'); delete btn.dataset.shown; return; }
       let val = r[n];
       if (Vault.isEnc(val)) { if (!(await Vault.ensureOpen())) return; val = await Vault.dec(val); }
-      span.textContent = val; btn.textContent = '🙈 Ẩn'; btn.dataset.shown = '1';
+      span.textContent = val; btn.innerHTML = Icon('x'); btn.title = 'Ẩn'; btn.dataset.shown = '1';
       if (navigator.clipboard && !btn.nextElementSibling?.dataset?.copy) {
-        const c = Object.assign(document.createElement('button'), { className: 'btn sm ghost', textContent: '📋 Sao chép' });
+        const c = Object.assign(document.createElement('button'), { className: 'ibtn3', title: 'Sao chép', innerHTML: Icon('copy') });
         c.dataset.copy = '1';
         c.onclick = () => navigator.clipboard.writeText(span.textContent).then(() => U.toast('Đã sao chép'));
         btn.after(c);
@@ -371,7 +400,7 @@
     });
     const del = App.main.querySelector('[data-del]');
     if (del) del.onclick = async () => {
-      if (!(await U.confirm('Xoá "' + DB.title(t, r) + '"? Thao tác này không hoàn tác được.'))) return;
+      if (!(await U.confirm('Xoá "' + title + '"? Thao tác này không hoàn tác được.'))) return;
       try { await DB.remove(t, key); U.toast('Đã xoá', 'ok'); history.back(); } catch (e) { U.toast(e.message, 'err'); }
     };
   };
