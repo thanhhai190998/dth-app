@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0089ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DTH">
+<title>MSc. Dinh Thanh Hai</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<header class="top">
+  <button id="back" class="ibtn" hidden aria-label="Quay lại">‹</button>
+  <a href="#/" id="logo"><img src="icons/icon.svg" alt="Trang chủ" width="34" height="34"></a>
+  <div id="title" class="ttl">…</div>
+  <button id="update" class="ibtn upd" hidden title="Có bản mới — bấm để cập nhật">⟳</button>
+  <button id="lock" class="ibtn" hidden></button>
+  <button id="menu" class="avatar" title="Cài đặt"><span id="avatar">?</span></button>
+</header>
+<div class="demo-bar">CHẾ ĐỘ DEMO — dữ liệu giả, chỉ lưu trong trình duyệt này</div>
+<main id="view"></main>
+
+<div id="login" class="login" hidden>
+  <div class="login-box">
+    <img src="icons/icon.svg" alt="" width="80" height="80">
+    <h1 id="appname"></h1>
+    <p class="muted">Đăng nhập bằng tài khoản Google đã được cấp quyền</p>
+    <div id="gbtn"></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/perm.js"></script>
+<script src="js/vault.js"></script>
+<script src="js/schema.js"></script>
+<script src="js/api.js"></script>
+<script src="js/mock.js"></script>
+<script src="js/store.js"></script>
+<script src="js/views.js"></script>
+<script src="js/dash.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
