@@ -41,10 +41,31 @@
   };
 
   // ---------------- TRANG CHỦ ----------------
-  // Nhóm nào đang thu gọn (nhớ theo từng máy)
-  const COLLAPSE_KEY = 'pwa-home-collapsed';
-  const collapsed = () => { try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]'); } catch (e) { return []; } };
-  const saveCollapsed = a => { try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(a)); } catch (e) { /* bỏ qua */ } };
+  // ---------------- MENU: các nhóm/mục người dùng được xem (dùng cho trang chủ + menu trượt) ----------------
+  V.navGroups = () => {
+    const groups = V.items().map(g => ({ ...g, items: g.items.filter(canItem) })).filter(g => g.items.length);
+    if (App.user.admin) groups.push({ key: 'adm', label: 'Quản trị', ic: 'shield', color: 'var(--g7)', items: [
+      { key: '_admin', label: 'Phân quyền', ic: 'shield', desc: 'Người dùng & quyền', href: '#/admin', color: 'var(--g7)' },
+      { key: 'ALBUM', label: 'Quản lý album', ic: 'image', desc: 'Thêm, sửa album ảnh', color: 'var(--g7)' },
+      { key: '_settings', label: 'Cài đặt', ic: 'gear', desc: 'Mật khẩu chủ, cài app', href: '#/settings', color: 'var(--g7)' }
+    ] });
+    return groups;
+  };
+  V.hrefOf = it => it.href || '#/i/' + enc(it.key);
+
+  // ---------------- "HAY DÙNG": đếm số lần mở từng mục (lưu trên máy này) ----------------
+  const VISIT_KEY = 'pwa-visits', TAB_KEY = 'pwa-home-tab';
+  const store = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
+    set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* bỏ qua */ } } };
+  V.visit = key => { const v = store.get(VISIT_KEY, {}); v[key] = (v[key] || 0) + 1; store.set(VISIT_KEY, v); };
+  const DEFAULT_FAV = ['Cong_viec', 'Document_no_In', 'Cong_viec_duoc_giao', 'DASH_CANHBAO', 'GIAODICH_THUCHI', 'Kiem_tra_hang', 'TAIKHOAN_MATKHAU', 'BANGCAP'];
+  function frequent(all, n = 8) {
+    const v = store.get(VISIT_KEY, {}), byKey = new Map(all.map(it => [it.key, it]));
+    const top = Object.entries(v).sort((a, b) => b[1] - a[1]).map(([k]) => byKey.get(k)).filter(Boolean);
+    const out = [];
+    for (const it of [...top, ...DEFAULT_FAV.map(k => byKey.get(k)).filter(Boolean), ...all]) if (!out.includes(it) && out.length < n) out.push(it);
+    return out;
+  }
 
   function greeting() {
     const h = new Date().getHours();
@@ -54,19 +75,15 @@
     return { hello, name, day: day.charAt(0).toUpperCase() + day.slice(1) };
   }
 
-  const tileHtml = (it, color) => `<a class="tile" href="#/i/${enc(it.key)}" style="--gc:${color}" data-s="${esc(U.norm(it.label + ' ' + (it.desc || '')))}">
-    <span class="tic">${Icon(it.ic)}</span><span class="tl">${esc(it.label)}</span>${it.desc ? `<span class="td">${esc(it.desc)}</span>` : ''}</a>`;
+  // Ô gọn kiểu màn hình điện thoại: biểu tượng + tên
+  const mini = it => `<a class="mt" href="${V.hrefOf(it)}" style="--gc:${it.color || 'var(--g7)'}" title="${esc(it.desc || it.label)}">
+    <span class="mt-ic">${Icon(it.ic)}</span><span class="mt-l">${esc(it.label)}</span></a>`;
 
   V.home = async () => {
     App.head(window.APP_CONFIG.appName, { home: true });
     App.loading();
     await DB.load('ALBUM').catch(() => {});
-    const groups = V.items().map(g => ({ ...g, items: g.items.filter(canItem) })).filter(g => g.items.length);
-    if (App.user.admin) groups.push({ key: 'adm', label: 'Quản trị', ic: 'shield', color: 'var(--g7)', items: [
-      { key: '_admin', label: 'Phân quyền', ic: 'shield', desc: 'Người dùng & quyền', href: '#/admin' },
-      { key: 'ALBUM', label: 'Quản lý album', ic: 'image', desc: 'Thêm, sửa album ảnh' },
-      { key: '_settings', label: 'Cài đặt', ic: 'gear', desc: 'Mật khẩu chủ, cài app', href: '#/settings' }
-    ] });
+    const groups = V.navGroups(), all = groups.flatMap(g => g.items);
 
     const can = t => permTableLevel(App.user, t);
     const kpis = [
@@ -87,39 +104,51 @@
       <label class="hsearch">${Icon('search')}<input type="search" id="hq" placeholder="Tìm nhanh một mục…" autocomplete="off"></label>
     </div>`);
 
-    const closed = collapsed();
+    let tab = store.get(TAB_KEY, 'g4');
+    if (!groups.some(x => x.key === tab)) tab = groups[0] && groups[0].key;
     let html = '';
     if (kpis.length) html += `<div class="kpi-row">${kpis.map(k => `<a class="kcard" href="${k.href}" data-k="${k.id}">
       <span class="kic">${Icon(k.ic)}</span><span class="kn"><span class="skel"></span></span><span class="kl">${esc(k.label)}</span></a>`).join('')}</div>`;
     if (quick.length) html += `<div class="quick"><span class="qt">Thêm nhanh</span>${quick.map(q =>
       `<a class="qbtn" href="#/f/${q.t}/new">${Icon('plus')}${esc(q.label)}</a>`).join('')}</div>`;
     if (!groups.length) html += '<div class="empty">Tài khoản của bạn chưa được cấp quyền mục nào. Hãy liên hệ quản trị viên.</div>';
-    html += groups.map(gr => `<section class="grp ${closed.includes(gr.key) ? 'closed' : ''}" data-g="${gr.key}" style="--gc:${gr.color}">
-      <button type="button" class="grp-h" data-tg="${gr.key}"><span class="gic">${Icon(gr.ic)}</span><span class="gname">${esc(gr.label)}</span>
-        <span class="cnt">${gr.items.length}</span><span class="chev">${Icon('chevron')}</span></button>
-      <div class="tiles">${gr.items.map(it => it.href ? tileHtml(it, gr.color).replace(`href="#/i/${enc(it.key)}"`, `href="${it.href}"`) : tileHtml(it, gr.color)).join('')}</div></section>`).join('');
-    html += '<div class="empty" id="nores" hidden>Không có mục nào khớp</div>';
+    else {
+      html += `<section class="hsec" id="hfav"><div class="hsec-h"><h2>${Icon('star', 'sm')} Hay dùng</h2><span class="muted small">tự cập nhật theo số lần bạn mở</span></div>
+        <div class="mgrid">${frequent(all).map(mini).join('')}</div></section>`;
+      html += `<section class="hsec" id="hall"><div class="hsec-h"><h2>Tất cả mục</h2></div>
+        <div class="gtabs">${groups.map(x => `<button type="button" class="gtab ${x.key === tab ? 'on' : ''}" data-t="${x.key}" style="--gc:${x.color}">
+          <span class="gt-ic">${Icon(x.ic)}</span>${esc(x.label)}<b>${x.items.length}</b></button>`).join('')}</div>
+        <div class="mgrid" id="gitems"></div></section>`;
+      html += `<section class="hsec" id="hres" hidden><div class="hsec-h"><h2>Kết quả tìm</h2></div><div class="mgrid" id="ritems"></div></section>`;
+    }
     App.main.innerHTML = html;
 
-    // Thu gọn / mở nhóm
-    App.main.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => {
-      const sec = b.closest('.grp'), now = collapsed().filter(k => k !== sec.dataset.g);
-      if (sec.classList.toggle('closed')) now.push(sec.dataset.g);
-      saveCollapsed(now);
+    // Tab nhóm
+    const drawTab = () => {
+      const gr = groups.find(x => x.key === tab); const box = document.getElementById('gitems');
+      if (box && gr) box.innerHTML = gr.items.map(mini).join('');
+    };
+    App.main.querySelectorAll('.gtab').forEach(b => b.onclick = () => {
+      tab = b.dataset.t; store.set(TAB_KEY, tab);
+      App.main.querySelectorAll('.gtab').forEach(x => x.classList.toggle('on', x === b));
+      drawTab();
+      centerTab(b, true);
     });
-    // Tìm nhanh trong các mục
+    // Đưa tab đang chọn vào giữa dải tab (chỉ cuộn ngang, không kéo trang)
+    const centerTab = (b, smooth) => { const bar = b && b.parentElement; if (!bar) return;
+      bar.scrollTo({ left: b.offsetLeft - bar.offsetLeft - (bar.clientWidth - b.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' }); };
+    centerTab(App.main.querySelector('.gtab.on'));
+    drawTab();
+
+    // Tìm nhanh: hiện kết quả từ mọi nhóm
     const hq = document.getElementById('hq');
     hq.oninput = () => {
       const q = U.norm(hq.value.trim());
-      let any = false;
-      App.main.querySelectorAll('.grp').forEach(sec => {
-        let n = 0;
-        sec.querySelectorAll('.tile').forEach(t => { const on = !q || t.dataset.s.includes(q); t.hidden = !on; if (on) n++; });
-        sec.hidden = !n; sec.classList.toggle('searching', !!q); any = any || n > 0;
-        sec.querySelector('.cnt').textContent = n;
-      });
-      document.getElementById('nores').hidden = any;
+      const res = q ? all.filter(it => U.norm(it.label + ' ' + (it.desc || '')).includes(q)) : [];
+      ['hfav', 'hall'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = !!q; });
       App.main.querySelectorAll('.kpi-row, .quick').forEach(el => { el.hidden = !!q; });
+      const rs = document.getElementById('hres');
+      if (rs) { rs.hidden = !q; document.getElementById('ritems').innerHTML = res.length ? res.map(mini).join('') : '<div class="muted small">Không có mục nào khớp</div>'; }
       document.querySelector('.hero-in').classList.toggle('with-kpi', kpis.length > 0 && !q);
     };
 
@@ -146,6 +175,7 @@
   V.list = async key => {
     const it = V.findItem(key);
     if (!it || !canItem(it)) return App.notFound();
+    V.visit(key);
     if (it.type === 'dash') return Dash.render(it);
     const t = it.table, def = TT()[t], L = def.list || {};
     App.head(it.label, { back: true });

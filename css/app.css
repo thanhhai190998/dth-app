@@ -90,29 +90,86 @@ main { max-width: 1040px; margin: 0 auto; padding: 12px 12px calc(84px + env(saf
 .qbtn:hover { border-color: var(--pri); }
 .qbtn .ico { width: 16px; height: 16px; color: var(--pri); }
 
-/* ---- Trang chủ: nhóm & ô chức năng ---- */
-.grp { margin: 20px 0 4px; }
-.grp-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 2px 2px 10px; background: none; border: 0;
-  color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+/* ---- Biểu tượng nhóm / số đếm dùng chung ---- */
 .gic { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
   background: color-mix(in srgb, var(--gc) 18%, transparent); color: var(--gc); }
 .gic .ico { width: 17px; height: 17px; }
-.gname { font-size: 16px; font-weight: 700; }
-.chev { margin-left: auto; color: var(--muted); transform: rotate(90deg); transition: transform .2s; }
-.grp.closed .chev { transform: rotate(0deg); }
-.grp.closed:not(.searching) .tiles { display: none; }
 .cnt { display: inline-block; min-width: 22px; padding: 0 7px; border-radius: 11px; background: var(--line); color: var(--muted); font-size: 12px; text-align: center; font-weight: 600; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
-@media (max-width: 520px) { .tiles { grid-template-columns: 1fr 1fr; } }
-.tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 16px; min-height: 116px;
-  background: var(--card); border: 1px solid var(--line); color: var(--text); transition: transform .12s, box-shadow .12s, border-color .12s; }
-.tile:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(15, 23, 42, .10); border-color: color-mix(in srgb, var(--gc) 50%, var(--line)); }
 .tic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 8px;
   background: color-mix(in srgb, var(--gc) 16%, transparent); color: var(--gc); }
 .tic .ico { width: 22px; height: 22px; }
-.tl { font-weight: 700; font-size: 14.5px; line-height: 1.25; }
-.td { font-size: 12.5px; color: var(--muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pic { display: inline-flex; vertical-align: middle; }
+
+/* ---- Trang chủ: Hay dùng + tab nhóm + ô gọn kiểu màn hình điện thoại ---- */
+.hsec { margin: 22px 0 4px; }
+.hsec-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 2px 10px; }
+.hsec-h h2 { margin: 0; font-size: 16px; display: inline-flex; align-items: center; gap: 6px; }
+.hsec-h h2 .ico { color: var(--g4); }
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; }
+@media (min-width: 760px) { .mgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; } }
+.mt { display: grid; justify-items: center; align-content: start; gap: 6px; padding: 10px 4px 8px; border-radius: 14px; color: var(--text);
+  text-align: center; transition: background .12s, transform .12s; }
+.mt:hover { background: var(--card); transform: translateY(-1px); }
+.mt-ic { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--gc) 16%, var(--card)); color: var(--gc); border: 1px solid color-mix(in srgb, var(--gc) 22%, transparent); }
+.mt-ic .ico { width: 26px; height: 26px; }
+.mt-l { font-size: 12px; font-weight: 600; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gtabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+.gtabs::-webkit-scrollbar { display: none; }
+.gtab { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 7px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: var(--text); background: var(--card); border: 1px solid var(--line); }
+.gtab b { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.gt-ic { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: var(--gc); background: color-mix(in srgb, var(--gc) 16%, transparent); }
+.gt-ic .ico { width: 15px; height: 15px; }
+.gtab.on { border-color: var(--gc); background: color-mix(in srgb, var(--gc) 12%, var(--card)); }
+.gtab.on b { color: var(--gc); }
+
+/* ---- Menu trượt (điện thoại/tablet) — cố định bên trái trên máy tính màn rộng ---- */
+.drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 45; width: min(300px, 86vw); display: flex; flex-direction: column;
+  background: var(--card); border-right: 1px solid var(--line); transform: translateX(-102%); visibility: hidden;
+  transition: transform .22s ease, visibility 0s linear .22s; padding-top: env(safe-area-inset-top); }
+.dr-open .drawer { transform: none; visibility: visible; transition: transform .22s ease; box-shadow: 8px 0 30px rgba(0, 0, 0, .18); }
+.scrim { position: fixed; inset: 0; z-index: 44; background: rgba(0, 0, 0, .45); opacity: 0; pointer-events: none; transition: opacity .2s; }
+.dr-open .scrim { opacity: 1; pointer-events: auto; }
+.dr-open { overflow: hidden; }
+.dr-h { display: flex; align-items: center; gap: 10px; padding: 12px 12px 8px 16px; }
+.dr-h img { border-radius: 8px; }
+.dr-h b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-x { width: 36px; height: 36px; border-radius: 10px; border: 0; background: var(--hover); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.dr-search { display: flex; align-items: center; gap: 8px; margin: 4px 12px 8px; padding: 0 10px; border-radius: 10px; background: var(--hover); border: 1px solid var(--line); }
+.dr-search .ico { width: 17px; height: 17px; color: var(--muted); }
+.dr-search input { border: 0; background: transparent; min-height: 38px; padding: 0; font-size: 14px; }
+.dr-search input:focus { outline: none; box-shadow: none; }
+.dr-nav { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+.dr-g { margin-top: 4px; }
+.dr-gh { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 10px; background: none;
+  color: var(--text); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
+.dr-gh:hover { background: var(--hover); }
+.dr-gl { flex: 1; }
+.dr-ch { color: var(--muted); transform: rotate(90deg); transition: transform .2s; display: grid; }
+.dr-ch .ico { width: 16px; height: 16px; }
+.dr-g.closed .dr-ch { transform: rotate(0deg); }
+.dr-g.closed .dr-items { display: none; }
+.drawer.searching .dr-g .dr-items { display: block; }
+.drawer.searching .dr-nav > .dr-i, .drawer.searching .dr-ch { display: none; }
+.dr-i { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; margin: 1px 0; border-radius: 10px; color: var(--text); font-size: 14px; }
+.dr-items .dr-i { padding-left: 46px; position: relative; }
+.dr-i:hover { background: var(--hover); }
+.dr-i.on { background: color-mix(in srgb, var(--pri) 13%, transparent); color: var(--pri); font-weight: 600; }
+.dr-ic { display: grid; color: var(--muted); }
+.dr-items .dr-ic { position: absolute; left: 18px; color: var(--gc); }
+.dr-i.on .dr-ic { color: var(--pri); }
+.dr-f { border-top: 1px solid var(--line); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+#menuBtn .ico { width: 22px; height: 22px; margin: auto; }
+@media (max-width: 759px) { #menuBtn { display: none; } }
+@media (min-width: 1100px) {
+  .has-drawer .drawer { top: calc(54px + env(safe-area-inset-top)); transform: none; visibility: visible; transition: none; box-shadow: none; z-index: 15; padding-top: 0; width: 264px; }
+  .has-drawer .dr-h, .has-drawer .scrim, .has-drawer #menuBtn { display: none; }
+  .has-drawer .dr-search { margin-top: 12px; }
+  .has-drawer main { margin-left: calc(264px + max(0px, (100vw - 264px - 1040px) / 2)); margin-right: auto; }
+  .has-drawer #hero { padding-left: 264px; }
+  .dr-open { overflow: auto; }
+}
 
 /* ---- Thanh điều hướng dưới (điện thoại) ---- */
 .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: none; gap: 4px;

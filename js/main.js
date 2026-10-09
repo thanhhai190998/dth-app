@@ -19,25 +19,82 @@
     },
     // Vùng nền màu phía trên (chỉ trang chủ)
     hero(html) { const h = document.getElementById('hero'); h.innerHTML = html; h.hidden = !html; },
-    // Thanh điều hướng dưới cùng (điện thoại)
+    // Thanh điều hướng dưới cùng (điện thoại) + menu trượt (máy tính: cố định bên trái)
     buildNav() {
       const q = App.user.quyen || {}, can = k => App.user.admin || Perm.rank(q[k]) > 0;
       const items = [
         { href: '#/', ic: 'home', l: 'Trang chủ' },
         can('Cong_viec') && { href: '#/i/Cong_viec', ic: 'box', l: 'Transmittal' },
         can('DASH_CANHBAO') && { href: '#/i/DASH_CANHBAO', ic: 'bell', l: 'Nhắc việc' },
-        { href: '#/settings', ic: 'gear', l: 'Cài đặt' }
+        { href: '#menu', ic: 'menu', l: 'Menu', menu: true }
       ].filter(Boolean);
-      document.getElementById('bnav').innerHTML = items.map(i => `<a href="${i.href}">${Icon(i.ic)}<span>${i.l}</span></a>`).join('');
-      document.body.classList.add('has-bnav');
+      const bn = document.getElementById('bnav');
+      bn.innerHTML = items.map(i => `<a href="${i.href}" ${i.menu ? 'data-menu' : ''}>${Icon(i.ic)}<span>${i.l}</span></a>`).join('');
+      bn.querySelector('[data-menu]').onclick = e => { e.preventDefault(); App.toggleDrawer(); };
+      document.getElementById('menuBtn').innerHTML = Icon('menu');
+      document.getElementById('menuBtn').onclick = () => App.toggleDrawer();
+      document.getElementById('scrim').onclick = () => App.closeDrawer();
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') App.closeDrawer(); });
+      document.body.classList.add('has-bnav', 'has-drawer');
+      App.renderDrawer();
     },
+    renderDrawer() {
+      const esc = U.esc, dr = document.getElementById('drawer');
+      // Nhóm nào đang mở (mặc định gập hết cho gọn; nhóm chứa trang đang xem tự mở)
+      const opened = App.drOpened();
+      // "Cài đặt" đã có ở chân menu → không lặp lại trong nhóm Quản trị
+      const groups = Views.navGroups().map(g => ({ ...g, items: g.items.filter(it => it.href !== '#/settings') }));
+      dr.innerHTML = `<div class="dr-h"><img src="icons/icon.svg" width="30" height="30" alt=""><b>${esc(C.appName)}</b>
+          <button type="button" class="dr-x" aria-label="Đóng menu">${Icon('x')}</button></div>
+        <label class="dr-search">${Icon('search')}<input type="search" placeholder="Tìm mục…" autocomplete="off"></label>
+        <nav class="dr-nav"><a class="dr-i" href="#/"><span class="dr-ic">${Icon('home', 'sm')}</span><span>Trang chủ</span></a>
+        ${groups.map(g => `<div class="dr-g ${opened.includes(g.key) ? '' : 'closed'}" data-g="${g.key}" style="--gc:${g.color}">
+          <button type="button" class="dr-gh"><span class="gic">${Icon(g.ic)}</span><span class="dr-gl">${esc(g.label)}</span>
+            <span class="cnt">${g.items.length}</span><span class="dr-ch">${Icon('chevron')}</span></button>
+          <div class="dr-items">${g.items.map(it => `<a class="dr-i" href="${Views.hrefOf(it)}" data-s="${esc(U.norm(it.label + ' ' + (it.desc || '')))}">
+            <span class="dr-ic">${Icon(it.ic, 'sm')}</span><span>${esc(it.label)}</span></a>`).join('')}</div></div>`).join('')}
+        </nav>
+        <div class="dr-f"><a class="dr-i" href="#/settings"><span class="dr-ic">${Icon('gear', 'sm')}</span><span>Cài đặt</span></a></div>`;
+      dr.querySelector('.dr-x').onclick = () => App.closeDrawer();
+      dr.querySelectorAll('.dr-gh').forEach(b => b.onclick = () => {
+        const g = b.closest('.dr-g'), open = !g.classList.toggle('closed');
+        const now = App.drOpened().filter(k => k !== g.dataset.g).concat(open ? [g.dataset.g] : []);
+        try { localStorage.setItem('pwa-drawer-open', JSON.stringify(now)); } catch (e) { /* bỏ qua */ }
+      });
+      const inp = dr.querySelector('.dr-search input');
+      inp.oninput = () => {
+        const s = U.norm(inp.value.trim());
+        dr.classList.toggle('searching', !!s);
+        dr.querySelectorAll('.dr-g').forEach(g => {
+          let n = 0;
+          g.querySelectorAll('.dr-i').forEach(a => { const on = !s || a.dataset.s.includes(s); a.hidden = !on; if (on) n++; });
+          g.hidden = !n;
+        });
+      };
+      dr.querySelectorAll('a.dr-i').forEach(a => a.addEventListener('click', () => { inp.value = ''; inp.oninput(); App.closeDrawer(); }));
+      App.navActive();
+    },
+    // Nhóm trong menu người dùng tự mở (mặc định gập hết cho gọn)
+    drOpened() { try { return JSON.parse(localStorage.getItem('pwa-drawer-open') || '[]'); } catch (e) { return []; } },
+    toggleDrawer() { document.body.classList.contains('dr-open') ? App.closeDrawer() : App.openDrawer(); },
+    openDrawer() { document.body.classList.add('dr-open'); },
+    closeDrawer() { document.body.classList.remove('dr-open'); },
     navActive() {
       const nav = document.getElementById('bnav'), h = location.hash || '#/';
+      const isHome = h === '#/' || h === '#' || h === '';
       nav.hidden = /^#\/(f|admin\/u)\//.test(h);
       nav.querySelectorAll('a').forEach(a => {
         const href = a.getAttribute('href');
-        a.classList.toggle('on', href === '#/' ? (h === '#/' || h === '#' || h === '') : h.startsWith(href));
+        a.classList.toggle('on', href === '#menu' ? false : href === '#/' ? isHome : h.startsWith(href));
       });
+      document.querySelectorAll('#drawer a.dr-i').forEach(a => {
+        const href = a.getAttribute('href');
+        a.classList.toggle('on', href === '#/' ? isHome : h === href || h.startsWith(href + '?'));
+      });
+      // Nhóm chứa trang đang xem tự mở; rời trang thì trả về trạng thái người dùng đã chọn
+      const opened = App.drOpened();
+      document.querySelectorAll('#drawer .dr-g').forEach(g =>
+        g.classList.toggle('closed', !opened.includes(g.dataset.g) && !g.querySelector('a.dr-i.on')));
     },
     loading() { App.main.innerHTML = '<div class="center pad"><span class="spin"></span></div>'; },
     // Giao diện: '' = theo máy, 'light', 'dark' (nhớ trên từng máy)
@@ -112,8 +169,9 @@
       return;
     }
     document.getElementById('avatar').textContent = ((window.Auth && Auth.name) || App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
+    await DB.load('ALBUM').catch(() => {});   // menu cần danh sách album
     App.buildNav();
-    window.addEventListener('hashchange', route);
+    window.addEventListener('hashchange', () => { App.closeDrawer(); route(); });
     route();
   }
 
