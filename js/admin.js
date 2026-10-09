@@ -159,6 +159,7 @@
       <span class="badge ${App.user.admin ? 'info' : 'ok'}">${App.user.owner ? 'Chủ app' : App.user.admin ? 'Quản trị viên' : 'Người dùng'}</span></div></section>`;
 
     h += group('Bảo mật', srow('lock', 'var(--g6)', 'Mật khẩu chủ', esc(vSub) + (Vault.isSet() ? '' : ' · <b>quên là không khôi phục được</b>'), vAct)
+      + (Vault.isSet() && App.user.owner ? srow('refresh', 'var(--g6)', 'Đổi mật khẩu chủ', 'Dữ liệu không cần mã hoá lại, đổi xong ngay', '<button class="btn sm ghost" data-act="chgvault">Đổi</button>') : '')
       + (Vault.isSet() && App.user.admin ? srow('key', 'var(--g6)', 'Mã hoá dữ liệu cũ', 'Tìm và mã hoá các giá trị còn để dạng chữ thường', '<button class="btn sm ghost" data-act="migrate">Chạy</button>') : ''));
 
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
@@ -216,6 +217,31 @@
         Vault.cfg = cfg; await Vault.unlock(r.a);
         U.toast('Đã đặt mật khẩu chủ', 'ok'); A.settings();
       } catch (e) { U.toast(e.message, 'err'); }
+    });
+    on('chgvault', async () => {
+      const r = await U.ask({ title: 'Đổi mật khẩu chủ',
+        message: 'Dữ liệu đã mã hoá <b>không cần mã hoá lại</b>: chỉ lớp khoá bên ngoài đổi theo mật khẩu mới. Mật khẩu mới ít nhất 10 ký tự — <b>hãy ghi lại ở nơi an toàn</b>.',
+        fields: [{ name: 'o', label: 'Mật khẩu chủ hiện tại', type: 'password' }, { name: 'a', label: 'Mật khẩu chủ mới', type: 'password' }, { name: 'b', label: 'Nhập lại mật khẩu mới', type: 'password' }], ok: 'Đổi' });
+      if (!r) return;
+      if (r.a.length < 10) return U.toast('Mật khẩu chủ mới cần ít nhất 10 ký tự', 'err');
+      if (r.a !== r.b) return U.toast('Hai lần nhập mật khẩu mới không khớp', 'err');
+      if (r.a === r.o) return U.toast('Mật khẩu mới phải khác mật khẩu hiện tại', 'err');
+      const btn = App.main.querySelector('[data-act="chgvault"]');
+      btn.disabled = true; btn.textContent = 'Đang đổi…';
+      try {
+        await Vault.reload();   // dùng cấu hình mới nhất trên Sheet
+        // Lấy vài giá trị đã mã hoá thật để kiểm tra khoá mới giải mã được trước khi lưu
+        const samples = [];
+        for (const [t, n] of encFields()) {
+          const rows = await DB.load(t).catch(() => []);
+          rows.filter(x => Vault.isEnc(x[n])).slice(0, 2).forEach(x => samples.push(x[n]));
+        }
+        const { cfg, key } = await Vault.rewrap(r.o, r.a, samples);
+        await API.setConfig('vault', JSON.stringify(cfg));
+        Vault.adopt(cfg, key);
+        U.toast('Đã đổi mật khẩu chủ', 'ok');
+        A.settings();
+      } catch (e) { U.toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Đổi'; }
     });
     on('migrate', async () => {
       if (!(await Vault.ensureOpen())) return;
