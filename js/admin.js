@@ -1,29 +1,42 @@
-// Quản trị: danh sách người dùng, bảng phân quyền, cài đặt (mật khẩu chủ, demo)
+// Quản trị: danh sách người dùng, phân quyền theo nhóm/mục, cài đặt (mật khẩu chủ, giao diện, demo)
 (function () {
   const esc = U.esc, enc = encodeURIComponent;
   const A = (window.Admin = {});
+  const initials = s => { const w = String(s || '?').replace(/@.*/, '').replace(/\(.*?\)/g, '').trim().split(/[\s._]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
+  const isDash = it => it.type === 'dash';
 
   // ---------------- DANH SÁCH NGƯỜI DÙNG ----------------
   A.users = async () => {
     if (!App.user.admin) return App.notFound();
     App.head('Phân quyền', { back: true });
     App.loading();
-    const users = await API.users();
+    const users = (await API.users()).slice().sort((a, b) => (b.Kich_hoat - a.Kich_hoat) || String(a.Ho_ten || a.Email).localeCompare(String(b.Ho_ten || b.Email), 'vi'));
     const n = u => Object.keys(u.Quyen || {}).length;
-    App.main.innerHTML = `<div class="toolbar"><div class="muted small">Chủ app <b>${esc(App.user.owner ? App.user.email : '')}</b> luôn có toàn quyền.</div>
-      <a class="btn" href="#/admin/u/new">＋ Thêm người dùng</a></div>
-      <div class="rows">${users.length ? users.map(u => `<a class="row" href="#/admin/u/${enc(u.Email)}">
-        <div class="row-main"><div class="row-title">${esc(u.Ho_ten || u.Email)}</div><div class="row-sub">${esc(u.Email)}</div>
-        <div class="row-meta"><span>${u.Admin ? 'Quản trị viên (toàn quyền)' : n(u) + ' mục được cấp'}</span><span>Gói: ${esc(u.Goi_thau || 'tất cả')}</span></div></div>
-        ${u.Kich_hoat ? (u.Admin ? '<span class="badge info">Admin</span>' : '<span class="badge ok">Hoạt động</span>') : '<span class="badge muted">Đã khoá</span>'}</a>`).join('')
-        : '<div class="empty">Chưa có người dùng nào ngoài chủ app.</div>'}</div>`;
+    const row = u => `<a class="row" href="#/admin/u/${enc(u.Email)}" data-tone="${u.Kich_hoat ? (u.Admin ? 'info' : 'ok') : ''}">
+      <span class="lead av" style="--gc:${u.Admin ? 'var(--g7)' : 'var(--g0)'}">${esc(initials(u.Ho_ten || u.Email))}</span>
+      <div class="row-main"><div class="row-title">${esc(u.Ho_ten || u.Email)}</div><div class="row-sub">${esc(u.Email)}</div>
+      <div class="row-meta"><span>${u.Admin ? 'Toàn quyền' : n(u) + ' mục được cấp'}</span><span>${u.Goi_thau ? 'Gói ' + esc(u.Goi_thau.replace(/,/g, ', ')) : 'Mọi gói'}</span></div></div>
+      ${u.Kich_hoat ? (u.Admin ? '<span class="badge info">Quản trị</span>' : '<span class="badge ok">Đang dùng</span>') : '<span class="badge">Đã khoá</span>'}</a>`;
+    App.main.innerHTML = `<div class="card uinfo"><span class="gic" style="--gc:var(--g7)">${Icon('shield')}</span>
+        <div><b>${users.filter(u => u.Kich_hoat).length} người dùng đang hoạt động</b>
+        <div class="muted small">Chủ app${App.user.owner ? ' (<b>' + esc(App.user.email) + '</b>)' : ''} luôn có toàn quyền và không hiện trong danh sách.</div></div>
+        <a class="btn ladd" href="#/admin/u/new">${Icon('plus')}Thêm</a></div>
+      ${users.length ? `<div class="rows">${users.map(row).join('')}</div>`
+        : `<div class="lempty"><span class="tic" style="--gc:var(--g7)">${Icon('users')}</span><div>Chưa có người dùng nào ngoài chủ app</div>
+           <a class="btn" href="#/admin/u/new">${Icon('plus')}Thêm người dùng</a></div>`}
+      <a class="fab" href="#/admin/u/new" title="Thêm người dùng">${Icon('plus')}</a>`;
+    App.main.classList.add('has-fab');
   };
 
-  // ---------------- SỬA 1 NGƯỜI DÙNG + MA TRẬN QUYỀN ----------------
+  // ---------------- SỬA 1 NGƯỜI DÙNG ----------------
+  // Mỗi mục có 3 mức: Không / Xem / Sửa. Bấm mức ở dòng nhóm = áp cho cả nhóm.
+  const tri = (attr, cur, noEdit) => `<div class="tri" ${attr}>${[['', 'Không'], ['view', 'Xem'], ['edit', 'Sửa']].map(([v, l]) =>
+    `<button type="button" data-l="${v}" class="${v === cur ? 'on' : ''}" ${v === 'edit' && noEdit ? 'disabled title="Dashboard chỉ có quyền xem"' : ''}>${l}</button>`).join('')}</div>`;
+
   A.user = async email => {
     if (!App.user.admin) return App.notFound();
     const isNew = email === 'new';
-    App.head(isNew ? 'Thêm người dùng' : 'Phân quyền người dùng', { back: true });
+    App.head(isNew ? 'Thêm người dùng' : 'Sửa quyền', { back: true });
     App.loading();
     const [users] = await Promise.all([API.users(), DB.load('ALBUM').catch(() => {}), DB.load('Danh_sach_goi_thau').catch(() => {})]);
     const u = isNew ? { Email: '', Ho_ten: '', Kich_hoat: true, Admin: false, Goi_thau: '', Quyen: {} } : users.find(x => x.Email === email);
@@ -33,70 +46,86 @@
     const goiSel = (u.Goi_thau || '').split(',').map(s => s.trim()).filter(Boolean);
     const groups = Views.items().filter(g => g.items.length);
 
-    App.main.innerHTML = `<form class="card form" id="uf">
-      <div class="fld"><span class="lbl">Email Google <b class="req">*</b></span><input name="Email" type="email" value="${esc(u.Email)}" ${isNew ? '' : 'readonly'} required placeholder="ten@gmail.com"></div>
-      <div class="fld"><span class="lbl">Họ tên</span><input name="Ho_ten" value="${esc(u.Ho_ten)}"></div>
-      <div class="inl wrap"><label class="chk"><input type="checkbox" name="Kich_hoat" ${u.Kich_hoat ? 'checked' : ''}> Cho phép đăng nhập</label>
-        <label class="chk"><input type="checkbox" name="Admin" ${u.Admin ? 'checked' : ''}> Quản trị viên (toàn quyền, kể cả phân quyền)</label></div>
-      <div class="fld"><span class="lbl">Gói thầu được xem (áp dụng cho Transmittal, Tài liệu đến/đi, Kiểm tra vật tư, Gói thầu)</span>
-        <div class="chips"><label class="chip"><input type="checkbox" data-goi="*" ${goiSel.length ? '' : 'checked'}> Tất cả gói</label>
-        ${goiAll.map(g => `<label class="chip"><input type="checkbox" data-goi="${esc(g)}" ${goiSel.includes(g) ? 'checked' : ''}> ${esc(g)}</label>`).join('')}</div></div>
-      <div class="fld"><span class="lbl">Quyền theo nhóm / mục — tick ở dòng nhóm để chọn cả nhóm, hoặc chọn từng mục</span>
-      <table class="perm"><thead><tr><th>Nhóm / mục</th><th>Xem</th><th>Sửa</th></tr></thead><tbody>
-      ${groups.map(g => `<tr class="pg"><td><button type="button" class="tog" data-tg="${g.key}">▾</button> <b>${esc(g.label)}</b></td>
-          <td><input type="checkbox" data-g="${g.key}" data-l="view"></td><td><input type="checkbox" data-g="${g.key}" data-l="edit"></td></tr>
-        ${g.items.map(it => `<tr class="pi" data-in="${g.key}"><td><span class="pic" style="color:${g.color}">${Icon(it.ic, 'sm')}</span> ${esc(it.label)}</td>
-          <td><input type="checkbox" data-k="${esc(it.perm)}" data-gg="${g.key}" data-l="view" ${Perm.rank(q[it.perm]) >= 1 ? 'checked' : ''}></td>
-          <td><input type="checkbox" data-k="${esc(it.perm)}" data-gg="${g.key}" data-l="edit" ${Perm.rank(q[it.perm]) >= 2 ? 'checked' : ''} ${it.key === 'DASH_TAICHINH' || it.key === 'DASH_CONGVIEC' || it.key === 'DASH_CANHBAO' ? 'disabled' : ''}></td></tr>`).join('')}`).join('')}
-      </tbody></table>
-      <p class="muted small">"Sửa" bao gồm xem, thêm, sửa, xoá. Dashboard chỉ có quyền xem; số liệu trong dashboard vẫn chỉ lấy từ những mục người đó được xem.
-      Dữ liệu đã mã hoá (mật khẩu, CCCD, số tài khoản) chỉ đọc được khi biết mật khẩu chủ.</p></div>
-      <div class="row-end sticky">${isNew ? '' : '<button type="button" class="btn danger ghost" data-del>🗑 Xoá người dùng</button>'}
-        <button type="button" class="btn ghost" onclick="history.back()">Huỷ</button><button class="btn">💾 Lưu</button></div></form>`;
+    App.main.innerHTML = `<form class="fwrap" id="uf" novalidate>
+      <div class="card form">
+        <div class="fld" data-f="Email"><span class="lbl">Gmail <b class="req">*</b></span><input name="Email" type="email" value="${esc(u.Email)}" ${isNew ? '' : 'readonly'} placeholder="ten@gmail.com" autocomplete="off"></div>
+        <div class="fld"><span class="lbl">Họ tên</span><input name="Ho_ten" value="${esc(u.Ho_ten)}" autocomplete="off"></div>
+        <label class="sw-row"><span><b>Cho phép đăng nhập</b><small>Tắt để khoá tạm thời mà không cần xoá</small></span><input type="checkbox" class="sw" name="Kich_hoat" ${u.Kich_hoat ? 'checked' : ''}></label>
+        <label class="sw-row"><span><b>Quản trị viên</b><small>Toàn quyền mọi mục, kể cả phân quyền cho người khác</small></span><input type="checkbox" class="sw" name="Admin" ${u.Admin ? 'checked' : ''}></label>
+      </div>
+      <div class="admin-note card" ${u.Admin ? '' : 'hidden'}><span class="gic" style="--gc:var(--g7)">${Icon('shield')}</span><div>Quản trị viên có <b>toàn quyền</b> nên không cần chọn gói thầu hay từng mục.</div></div>
+      <div class="card form scoped" ${u.Admin ? 'hidden' : ''}>
+        <div class="fsec"><span class="gic" style="--gc:var(--g4)">${Icon('folder')}</span>Gói thầu được xem</div>
+        <div class="muted small">Áp dụng cho Transmittal, Tài liệu đến/đi, Kiểm tra vật tư và Gói thầu.</div>
+        <div class="seg goi"><button type="button" class="segb ${goiSel.length ? '' : 'on'}" data-goi="*">Tất cả gói</button>
+          ${goiAll.map(g => `<button type="button" class="segb ${goiSel.includes(g) ? 'on' : ''}" data-goi="${esc(g)}">${esc(g)}</button>`).join('')}</div>
+      </div>
+      <div class="card form scoped" ${u.Admin ? 'hidden' : ''}>
+        <div class="fsec"><span class="gic" style="--gc:var(--g0)">${Icon('key')}</span>Quyền theo mục</div>
+        <div class="muted small">"Xem" chỉ đọc; "Sửa" gồm xem, thêm, sửa, xoá. Bấm mức ở dòng nhóm để áp cho cả nhóm.</div>
+        ${groups.map(g => {
+          const any = g.items.some(it => Perm.rank(q[it.perm]) > 0);
+          return `<div class="pgrp ${any ? '' : 'closed'}" data-g="${g.key}" style="--gc:${g.color}">
+            <div class="pg-h"><button type="button" class="pg-tog" aria-label="Mở/thu gọn">${Icon('chevron')}</button>
+              <span class="gic">${Icon(g.ic)}</span><span class="pg-n"><b>${esc(g.label)}</b><small class="pg-sum"></small></span>
+              ${tri(`data-g="${g.key}"`, null, g.items.every(isDash))}</div>
+            <div class="pg-items">${g.items.map(it => `<div class="pi-row"><span class="pic" style="color:${g.color}">${Icon(it.ic, 'sm')}</span>
+              <span class="pi-l">${esc(it.label)}</span>${tri(`data-k="${esc(it.perm)}" data-gg="${g.key}"`, q[it.perm] || '', isDash(it))}</div>`).join('')}</div></div>`;
+        }).join('')}
+        <div class="muted small">Dashboard chỉ lấy số liệu từ những mục người đó được xem. Dữ liệu đã mã hoá (mật khẩu, CCCD, số tài khoản) chỉ đọc được khi biết mật khẩu chủ.</div>
+      </div>
+      <div class="fbar">${isNew ? '' : `<button type="button" class="btn danger ghost" data-del title="Xoá người dùng">${Icon('trash')}</button>`}
+        <button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">${Icon('check')} Lưu</button></div></form>`;
 
     const f = document.getElementById('uf');
-    const boxes = (gk, l) => [...f.querySelectorAll(`input[data-gg="${gk}"][data-l="${l}"]:not(:disabled)`)];
-    const syncGroups = () => groups.forEach(g => ['view', 'edit'].forEach(l => {
-      const b = boxes(g.key, l), gb = f.querySelector(`input[data-g="${g.key}"][data-l="${l}"]`);
-      const on = b.filter(x => x.checked).length;
-      gb.checked = b.length > 0 && on === b.length; gb.indeterminate = on > 0 && on < b.length; gb.disabled = !b.length;
+    let dirty = false;
+    const level = el => el.querySelector('button.on')?.dataset.l || '';
+    const setTri = (el, l) => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.l === l));
+    const items = gk => [...f.querySelectorAll(`.tri[data-gg="${gk}"]`)];
+    const sync = () => groups.forEach(g => {
+      const its = items(g.key), lv = its.map(level), gt = f.querySelector(`.tri[data-g="${g.key}"]`);
+      const same = lv.every(x => x === lv[0]);
+      setTri(gt, same ? lv[0] : '__mixed');
+      const on = lv.filter(Boolean).length;
+      f.querySelector(`.pgrp[data-g="${g.key}"] .pg-sum`).textContent = on ? `${on}/${its.length} mục được cấp` : 'Chưa cấp mục nào';
+    });
+    f.querySelectorAll('.tri').forEach(t => t.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.disabled) return;
+      dirty = true;
+      if (t.dataset.g) items(t.dataset.g).forEach(it => {
+        const noEdit = it.querySelector('[data-l="edit"]').disabled;
+        setTri(it, b.dataset.l === 'edit' && noEdit ? 'view' : b.dataset.l);
+      });
+      else setTri(t, b.dataset.l);
+      sync();
     }));
-    // Tick "Sửa" thì tự tick "Xem"; bỏ "Xem" thì bỏ luôn "Sửa"
-    const link = (box) => {
-      const row = box.closest('tr');
-      const v = row.querySelector('[data-l="view"]'), e = row.querySelector('[data-l="edit"]');
-      if (box.dataset.l === 'edit' && box.checked) v.checked = true;
-      if (box.dataset.l === 'view' && !box.checked && e) e.checked = false;
-    };
-    f.querySelectorAll('input[data-k]').forEach(b => b.onchange = () => { link(b); syncGroups(); });
-    f.querySelectorAll('input[data-g]').forEach(gb => gb.onchange = () => {
-      boxes(gb.dataset.g, gb.dataset.l).forEach(b => { b.checked = gb.checked; link(b); });
-      syncGroups();
+    f.querySelectorAll('.pg-tog, .pg-n').forEach(b => b.onclick = () => b.closest('.pgrp').classList.toggle('closed'));
+    const goiBtns = [...f.querySelectorAll('[data-goi]')];
+    goiBtns.forEach(b => b.onclick = () => {
+      dirty = true;
+      if (b.dataset.goi === '*') { goiBtns.forEach(x => x.classList.toggle('on', x === b)); return; }
+      b.classList.toggle('on'); goiBtns[0].classList.remove('on');
+      if (!goiBtns.some(x => x.classList.contains('on'))) goiBtns[0].classList.add('on');
     });
-    f.querySelectorAll('[data-tg]').forEach(b => b.onclick = () => {
-      const rows = f.querySelectorAll(`tr[data-in="${b.dataset.tg}"]`), hide = !rows[0]?.hidden;
-      rows.forEach(r => r.hidden = hide); b.textContent = hide ? '▸' : '▾';
-    });
-    const goiBoxes = [...f.querySelectorAll('[data-goi]')];
-    goiBoxes.forEach(b => b.onchange = () => {
-      if (b.dataset.goi === '*' && b.checked) goiBoxes.forEach(x => { if (x !== b) x.checked = false; });
-      if (b.dataset.goi !== '*' && b.checked) goiBoxes[0].checked = false;
-      if (!goiBoxes.some(x => x.checked)) goiBoxes[0].checked = true;
-    });
-    syncGroups();
+    f.Admin.onchange = () => { f.querySelectorAll('.scoped').forEach(s => { s.hidden = f.Admin.checked; }); f.querySelector('.admin-note').hidden = !f.Admin.checked; };
+    f.addEventListener('input', () => { dirty = true; });
+    f.querySelector('[data-cancel]').onclick = async () => { if (dirty && !(await U.confirm('Bỏ những thay đổi vừa nhập?'))) return; history.back(); };
+    sync();
 
     f.onsubmit = async e => {
       e.preventDefault();
-      const fd = new FormData(f);
-      const email = String(fd.get('Email') || '').trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !email.endsWith('@demo')) return U.toast('Email không hợp lệ', 'err');
+      const email = String(f.Email.value || '').trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !email.endsWith('@demo')) {
+        f.querySelector('[data-f="Email"]').classList.add('err');
+        return U.toast('Gmail không hợp lệ', 'err');
+      }
+      if (isNew && users.some(x => x.Email === email)) return U.toast('Gmail này đã có trong danh sách', 'err');
       const quyen = {};
-      f.querySelectorAll('input[data-k][data-l="view"]:checked').forEach(b => { quyen[b.dataset.k] = 'view'; });
-      f.querySelectorAll('input[data-k][data-l="edit"]:checked').forEach(b => { quyen[b.dataset.k] = 'edit'; });
-      const goi = goiBoxes.filter(b => b.checked && b.dataset.goi !== '*').map(b => b.dataset.goi);
-      const out = { Email: email, Ho_ten: String(fd.get('Ho_ten') || '').trim(), Kich_hoat: !!fd.get('Kich_hoat'), Admin: !!fd.get('Admin'), Goi_thau: goi.join(','), Quyen: quyen };
-      if (isNew && users.some(x => x.Email === email)) return U.toast('Email này đã có trong danh sách', 'err');
-      try { await API.saveUser(out); U.toast('Đã lưu quyền', 'ok'); location.replace('#/admin'); }
+      f.querySelectorAll('.tri[data-k]').forEach(t => { const l = level(t); if (l) quyen[t.dataset.k] = l; });
+      const goi = goiBtns.filter(b => b.classList.contains('on') && b.dataset.goi !== '*').map(b => b.dataset.goi);
+      const out = { Email: email, Ho_ten: f.Ho_ten.value.trim(), Kich_hoat: f.Kich_hoat.checked, Admin: f.Admin.checked, Goi_thau: goi.join(','), Quyen: quyen };
+      if (!out.Admin && !Object.keys(quyen).length && !(await U.confirm('Người này chưa được cấp mục nào nên đăng nhập sẽ không thấy gì. Vẫn lưu?'))) return;
+      try { await API.saveUser(out); dirty = false; U.toast('Đã lưu quyền', 'ok'); location.replace('#/admin'); }
       catch (err) { U.toast(err.message, 'err'); }
     };
     const del = f.querySelector('[data-del]');
@@ -108,34 +137,53 @@
 
   // ---------------- CÀI ĐẶT ----------------
   const encFields = () => Object.entries(SCHEMA.tables).flatMap(([t, d]) => d.fields.filter(f => f.enc).map(f => [t, f.n]));
+  const srow = (ic, color, title, sub, action) => `<div class="srow"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
+    <div class="st"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${action ? `<div class="sa">${action}</div>` : ''}</div>`;
+  const slink = (href, ic, color, title, sub) => `<a class="srow link" href="${href}"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
+    <div class="st"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div><span class="schev">${Icon('chevron')}</span></a>`;
+  const group = (title, body) => `<div class="sg-h">${esc(title)}</div><div class="card slist">${body}</div>`;
 
   A.settings = async () => {
     App.head('Cài đặt', { back: true });
     const C = window.APP_CONFIG, demo = C.mode === 'demo';
-    const vs = !Vault.isSet() ? '<span class="badge warn">Chưa đặt</span>' : Vault.isOpen() ? '<span class="badge ok">Đang mở khoá</span>' : '<span class="badge info">Đang khoá</span>';
-    let h = `<section class="card"><h3>Tài khoản</h3><p><b>${esc(App.user.name || '')}</b><br><span class="muted">${esc(App.user.email)}</span>
-      ${App.user.admin ? ' <span class="badge info">Admin</span>' : ''}</p>
-      ${demo ? '' : '<button class="btn ghost" data-act="signout">Đăng xuất</button>'}</section>`;
-    h += `<section class="card"><h3>Mật khẩu chủ ${vs}</h3>
-      <p class="muted small">Dùng để mã hoá mật khẩu tài khoản, số CCCD, số tài khoản ngay trên máy trước khi lưu lên Google Sheet.
-      Tự khoá sau ${C.autoLockMinutes} phút không thao tác. <b>Quên mật khẩu chủ thì không khôi phục được dữ liệu đã mã hoá.</b></p>
-      <div class="inl wrap">
-      ${!Vault.isSet() && App.user.admin ? '<button class="btn" data-act="setvault">Đặt mật khẩu chủ</button>' : ''}
-      ${Vault.isSet() && !Vault.isOpen() ? '<button class="btn" data-act="unlock">🔓 Mở khoá</button>' : ''}
-      ${Vault.isOpen() ? '<button class="btn ghost" data-act="lock">🔒 Khoá ngay</button>' : ''}
-      ${Vault.isSet() && App.user.admin ? '<button class="btn ghost" data-act="migrate">Mã hoá dữ liệu cũ (chữ thường)</button>' : ''}
-      </div></section>`;
-    if (App.installPrompt) h += `<section class="card"><h3>Cài đặt app</h3><button class="btn" data-act="install">📲 Cài app vào máy này</button></section>`;
-    else h += `<section class="card"><h3>Cài app vào máy</h3><p class="muted small">Android / PC (Chrome, Edge): menu ⋮ → <b>Cài đặt ứng dụng</b>.
-      iPhone (Safari): nút Chia sẻ → <b>Thêm vào MH chính</b>.</p></section>`;
+    const name = (window.Auth && Auth.name) || App.user.name || App.user.email.split('@')[0];
+    const pic = !demo && window.Auth && Auth.picture;
+    const vSub = !Vault.isSet() ? 'Chưa đặt — mật khẩu tài khoản, CCCD, số tài khoản chưa được mã hoá'
+      : Vault.isOpen() ? 'Đang mở khoá · tự khoá sau ' + C.autoLockMinutes + ' phút không thao tác' : 'Đang khoá';
+    const vAct = !Vault.isSet() ? (App.user.admin ? '<button class="btn sm" data-act="setvault">Đặt</button>' : '')
+      : Vault.isOpen() ? '<button class="btn sm ghost" data-act="lock">Khoá ngay</button>' : '<button class="btn sm" data-act="unlock">Mở khoá</button>';
+    const th = App.theme();
+
+    let h = `<section class="card prof">${pic ? `<img class="pav" src="${esc(pic)}" alt="" referrerpolicy="no-referrer">` : `<span class="lead av big" style="--gc:var(--pri)">${esc(initials(name))}</span>`}
+      <div><b class="pn">${esc(name)}</b><div class="muted small">${esc(App.user.email)}</div>
+      <span class="badge ${App.user.admin ? 'info' : 'ok'}">${App.user.owner ? 'Chủ app' : App.user.admin ? 'Quản trị viên' : 'Người dùng'}</span></div></section>`;
+
+    h += group('Bảo mật', srow('lock', 'var(--g6)', 'Mật khẩu chủ', esc(vSub) + (Vault.isSet() ? '' : ' · <b>quên là không khôi phục được</b>'), vAct)
+      + (Vault.isSet() && App.user.admin ? srow('key', 'var(--g6)', 'Mã hoá dữ liệu cũ', 'Tìm và mã hoá các giá trị còn để dạng chữ thường', '<button class="btn sm ghost" data-act="migrate">Chạy</button>') : ''));
+
+    h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
+      `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`));
+
+    h += group('Ứng dụng',
+      (App.installPrompt ? srow('download', 'var(--g0)', 'Cài app vào máy này', 'Mở như app riêng, có biểu tượng trên màn hình', '<button class="btn sm" data-act="install">Cài</button>')
+        : srow('download', 'var(--g0)', 'Cài app vào máy', 'Android/PC: menu ⋮ → <b>Cài đặt ứng dụng</b> · iPhone (Safari): Chia sẻ → <b>Thêm vào MH chính</b>'))
+      + srow('refresh', 'var(--g0)', 'Phiên bản ' + esc(C.version), demo ? 'Chế độ DEMO — dữ liệu giả' : 'Dữ liệu trên Google Sheets', '<button class="btn sm ghost" data-act="update">Kiểm tra</button>')
+      + slink('privacy.html', 'shield', 'var(--g0)', 'Chính sách bảo mật', ''));
+
+    if (App.user.admin) {
+      h += group('Quản trị', slink('#/admin', 'users', 'var(--g7)', 'Phân quyền', '<span data-ucount>Người dùng và quyền truy cập</span>')
+        + slink('#/i/ALBUM', 'image', 'var(--g7)', 'Quản lý album', 'Thêm, đổi tên, sắp xếp album ảnh'));
+    }
     if (demo) {
       const emails = API.demo.emails(), cur = API.demo.current();
-      h += `<section class="card"><h3>Chế độ DEMO</h3><p class="muted small">Dữ liệu giả lưu trong trình duyệt này. Đổi người dùng để thử phân quyền.</p>
-        <div class="fld"><span class="lbl">Đang đăng nhập giả bằng</span><select data-act="switch">${emails.map(e => `<option ${e === cur ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select></div>
-        <button class="btn danger ghost" data-act="reset">Đặt lại toàn bộ dữ liệu demo</button></section>`;
-    }
-    h += `<p class="muted small center">Phiên bản ${esc(C.version)} · chế độ ${demo ? 'DEMO' : 'Google Sheets'} · <a href="privacy.html">Chính sách bảo mật</a></p>`;
-    App.main.innerHTML = h;
+      h += group('Chế độ demo', srow('users', 'var(--g4)', 'Đăng nhập giả bằng', 'Đổi người để thử phân quyền',
+        `<select data-act="switch">${emails.map(e => `<option ${e === cur ? 'selected' : ''}>${esc(e)}</option>`).join('')}</select>`)
+        + srow('trash', 'var(--bad)', 'Đặt lại dữ liệu demo', 'Xoá dữ liệu giả và tạo lại từ đầu', '<button class="btn sm danger ghost" data-act="reset">Đặt lại</button>'));
+    } else h += `<button class="btn danger ghost wide" data-act="signout">${Icon('logout')} Đăng xuất</button>`;
+    App.main.innerHTML = `<div class="settings">${h}</div>`;
+    // Số người dùng: điền sau, không bắt trang phải chờ
+    const uc = App.main.querySelector('[data-ucount]');
+    if (uc) API.users().then(a => { if (uc.isConnected) uc.textContent = a.filter(u => u.Kich_hoat).length + ' người dùng đang hoạt động'; }).catch(() => {});
 
     const on = (act, fn) => { const el = App.main.querySelector(`[data-act="${act}"]`); if (el) el[el.tagName === 'SELECT' ? 'onchange' : 'onclick'] = fn; };
     on('signout', () => { API.signOut(); location.hash = '#/'; location.reload(); });
@@ -144,6 +192,17 @@
     on('install', async () => { App.installPrompt.prompt(); App.installPrompt = null; });
     on('switch', e => { API.demo.switchUser(e.target.value); DB.clear(); Vault.lock(); location.hash = '#/'; location.reload(); });
     on('reset', async () => { if (await U.confirm('Xoá toàn bộ dữ liệu demo và tạo lại dữ liệu mẫu?')) { API.demo.reset(); localStorage.removeItem('pwa-demo-user'); location.hash = '#/'; location.reload(); } });
+    const tb = App.main.querySelector('[data-act="theme"]');
+    tb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; App.setTheme(b.dataset.v); A.settings(); };
+    on('update', async () => {
+      try {
+        const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+        if (!reg) return U.toast('Không kiểm tra được trên trình duyệt này', 'err');
+        await reg.update();
+        if (reg.waiting || reg.installing) { U.toast('Có bản mới — đang cập nhật…', 'ok'); (reg.waiting || reg.installing).postMessage('skip'); }
+        else U.toast('Đang dùng bản mới nhất', 'ok');
+      } catch (e) { U.toast('Không kiểm tra được: ' + e.message, 'err'); }
+    });
     on('setvault', async () => {
       const r = await U.ask({ title: 'Đặt mật khẩu chủ', message: 'Ít nhất 10 ký tự. Hãy ghi nhớ hoặc cất ở nơi an toàn — <b>quên là mất dữ liệu đã mã hoá</b>.',
         fields: [{ name: 'a', label: 'Mật khẩu chủ', type: 'password' }, { name: 'b', label: 'Nhập lại', type: 'password' }], ok: 'Đặt' });
@@ -169,14 +228,14 @@
           const rows = await DB.load(t, true);
           for (const r of rows.filter(r => r[n] !== '' && r[n] != null && !Vault.isEnc(String(r[n])))) {
             total++;
-            btn.textContent = `Đang mã hoá… ${total}`;
+            btn.textContent = `${total}…`;
             await DB.update(t, { [kf]: r[kf], [n]: await Vault.enc(String(r[n])) });
             done++;
           }
         }
         U.toast(total ? `Đã mã hoá ${done} giá trị` : 'Không còn giá trị nào chưa mã hoá', 'ok');
       } catch (e) { U.toast(`Lỗi sau ${done} giá trị: ${e.message}`, 'err'); }
-      btn.disabled = false; btn.textContent = 'Mã hoá dữ liệu cũ (chữ thường)';
+      btn.disabled = false; btn.textContent = 'Chạy';
     });
   };
 })();

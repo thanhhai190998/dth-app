@@ -40,6 +40,12 @@
       });
     },
     loading() { App.main.innerHTML = '<div class="center pad"><span class="spin"></span></div>'; },
+    // Giao diện: '' = theo máy, 'light', 'dark' (nhớ trên từng máy)
+    theme() { try { return localStorage.getItem('pwa-theme') || ''; } catch (e) { return ''; } },
+    setTheme(t) {
+      try { if (t) localStorage.setItem('pwa-theme', t); else localStorage.removeItem('pwa-theme'); } catch (e) { /* bỏ qua */ }
+      if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+    },
     notFound() { App.head('Không tìm thấy', { back: true }); App.main.innerHTML = '<div class="empty">Không có trang này hoặc bạn không có quyền truy cập.</div>'; },
     lockIcon() {
       const b = document.getElementById('lock');
