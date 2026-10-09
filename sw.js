@@ -1,6 +1,6 @@
 // Service worker: cho phép cài app và mở được khi mạng yếu.
 // Khi phát hành bản mới, tăng số phiên bản dưới đây để máy người dùng tải lại.
-const CACHE = 'app-v0.1.0';
+const CACHE = 'app-v0.1.1';
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/util.js', 'js/perm.js', 'js/vault.js', 'js/schema.js', 'js/api.js', 'js/mock.js',
   'js/store.js', 'js/views.js', 'js/dash.js', 'js/admin.js', 'js/main.js',

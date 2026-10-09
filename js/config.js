@@ -18,5 +18,5 @@ window.APP_CONFIG = {
   deadlineDaysDefault: 14,   // hạn trả lời transmittal mặc định (ngày) nếu gói thầu chưa đặt riêng
   expiryWarnDays: 90,        // cảnh báo bằng cấp / chứng chỉ sắp hết hạn trước N ngày
   passwordAgeWarnDays: 180,  // nhắc đổi mật khẩu tài khoản sau N ngày
-  version: '0.1.0'
+  version: '0.1.1'
 };
