@@ -97,6 +97,14 @@
         g.classList.toggle('closed', !opened.includes(g.dataset.g) && !g.querySelector('a.dr-i.on')));
     },
     loading() { App.main.innerHTML = '<div class="center pad"><span class="spin"></span></div>'; },
+    // Chân trang: bản quyền + chính sách bảo mật + phiên bản (cả màn hình đăng nhập)
+    footer() {
+      const y = new Date().getFullYear(), since = C.copyrightSince || y;
+      const owner = U.esc(C.copyright || C.appName), yr = since < y ? `${since}–${y}` : y;
+      document.getElementById('foot').innerHTML = `<div class="foot-in"><span>© ${yr} ${owner}. Bảo lưu mọi quyền.</span>
+        <span><a href="privacy.html">Chính sách bảo mật</a> · Phiên bản ${U.esc(C.version)}</span></div>`;
+      document.getElementById('lfoot').innerHTML = `© ${yr} ${owner} · <a href="privacy.html">Chính sách bảo mật</a>`;
+    },
     // Giao diện: '' = theo máy, 'light', 'dark' (nhớ trên từng máy)
     theme() { try { return localStorage.getItem('pwa-theme') || ''; } catch (e) { return ''; } },
     setTheme(t) {
@@ -149,6 +157,7 @@
     loadFont();
     document.documentElement.style.setProperty('--pri', C.primaryColor);
     document.getElementById('appname').textContent = C.appName;
+    App.footer();
     if (C.mode === 'demo') document.body.classList.add('is-demo');
     document.getElementById('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
     document.getElementById('lock').onclick = async () => { if (Vault.isOpen()) Vault.lock(); else await Vault.ensureOpen(); };
