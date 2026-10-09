@@ -169,6 +169,7 @@
       (App.installPrompt ? srow('download', 'var(--g0)', 'Cài app vào máy này', 'Mở như app riêng, có biểu tượng trên màn hình', '<button class="btn sm" data-act="install">Cài</button>')
         : srow('download', 'var(--g0)', 'Cài app vào máy', 'Android/PC: menu ⋮ → <b>Cài đặt ứng dụng</b> · iPhone (Safari): Chia sẻ → <b>Thêm vào MH chính</b>'))
       + srow('refresh', 'var(--g0)', 'Phiên bản ' + esc(C.version), demo ? 'Chế độ DEMO — dữ liệu giả' : 'Dữ liệu trên Google Sheets', '<button class="btn sm ghost" data-act="update">Kiểm tra</button>')
+      + srow('saved', 'var(--g0)', 'Dữ liệu lưu tạm trên máy', '<span data-disk>Giúp mở app nhanh và xem được khi mất mạng</span>', '<button class="btn sm ghost" data-act="wipe">Xoá</button>')
       + slink('privacy.html', 'shield', 'var(--g0)', 'Chính sách bảo mật', ''));
 
     if (App.user.admin) {
@@ -187,7 +188,13 @@
     if (uc) API.users().then(a => { if (uc.isConnected) uc.textContent = a.filter(u => u.Kich_hoat).length + ' người dùng đang hoạt động'; }).catch(() => {});
 
     const on = (act, fn) => { const el = App.main.querySelector(`[data-act="${act}"]`); if (el) el[el.tagName === 'SELECT' ? 'onchange' : 'onclick'] = fn; };
-    on('signout', () => { API.signOut(); location.hash = '#/'; location.reload(); });
+    on('signout', () => App.signOut());
+    on('wipe', async () => {
+      if (!await U.confirm('Xoá dữ liệu lưu tạm trên máy này (danh sách, ảnh nhỏ)? Dữ liệu trên Google Sheets không bị ảnh hưởng; lần mở sau sẽ tải lại.')) return;
+      await DB.wipe(); U.toast('Đã xoá dữ liệu lưu tạm', 'ok'); location.reload();
+    });
+    const du = App.main.querySelector('[data-disk]');
+    if (du) DB.diskUsage().then(b => { if (du.isConnected && b) du.textContent = 'Đang dùng ' + (b / 1048576).toFixed(1).replace('.', ',') + ' MB trên máy (gồm cả nhạc đã lưu)'; });
     on('unlock', async () => { if (await Vault.ensureOpen()) A.settings(); });
     on('lock', () => { Vault.lock(); A.settings(); });
     on('install', async () => { App.installPrompt.prompt(); App.installPrompt = null; });

@@ -34,7 +34,7 @@
       document.getElementById('menuBtn').innerHTML = Icon('menu');
       document.getElementById('menuBtn').onclick = () => App.toggleDrawer();
       document.getElementById('scrim').onclick = () => App.closeDrawer();
-      document.addEventListener('keydown', e => { if (e.key === 'Escape') App.closeDrawer(); });
+      if (!App._escBound) { App._escBound = true; document.addEventListener('keydown', e => { if (e.key === 'Escape') App.closeDrawer(); }); }
       document.body.classList.add('has-bnav', 'has-drawer');
       App.renderDrawer();
     },
@@ -120,26 +120,68 @@
     }
   });
 
-  async function route() {
+  // keep = vẽ lại trang đang xem (dữ liệu vừa cập nhật ngầm), giữ nguyên vị trí cuộn
+  async function route(keep) {
     const h = location.hash.replace(/^#/, '') || '/';
     const [path, qs] = h.split('?');
     const p = path.split('/').filter(Boolean).map(decodeURIComponent);
     const params = new URLSearchParams(qs || '');
-    window.scrollTo(0, 0);
+    const y = window.scrollY;
+    DB.track = new Set();
+    if (!keep) window.scrollTo(0, 0);
     try {
-      if (!p.length) return await Views.home();
-      if (p[0] === 'i') return await Views.list(p[1]);
-      if (p[0] === 'r') return await Views.detail(p[1], p[2]);
-      if (p[0] === 'f') return await Views.form(p[1], p[2], params);
-      if (p[0] === 'admin' && !p[1]) return await Admin.users();
-      if (p[0] === 'admin' && p[1] === 'u') return await Admin.user(p[2]);
-      if (p[0] === 'settings') return await Admin.settings();
-      App.notFound();
+      if (!p.length) await Views.home();
+      else if (p[0] === 'i') await Views.list(p[1]);
+      else if (p[0] === 'r') await Views.detail(p[1], p[2]);
+      else if (p[0] === 'f') await Views.form(p[1], p[2], params);
+      else if (p[0] === 'admin' && !p[1]) await Admin.users();
+      else if (p[0] === 'admin' && p[1] === 'u') await Admin.user(p[2]);
+      else if (p[0] === 'settings') await Admin.settings();
+      else App.notFound();
+      if (keep) window.scrollTo(0, y);
+      try { performance.mark('route:' + location.hash); } catch (e) { /* đo thời gian mở trang (DevTools → Performance) */ }
     } catch (e) {
       console.error(e);
       App.main.innerHTML = `<div class="empty err">⚠️ ${U.esc(e.message)}<br><button class="btn" onclick="location.reload()">Thử lại</button></div>`;
     }
   }
+  App.route = route;
+
+  // Dữ liệu cập nhật ngầm có thay đổi → vẽ lại trang đang xem (trừ khi người dùng đang nhập liệu)
+  DB.onChange = changed => {
+    if (changed.includes('ALBUM') && App.user) App.renderDrawer();
+    if (!changed.some(t => DB.track.has(t))) return;
+    if (/^#\/(f|admin\/u)\//.test(location.hash) || document.querySelector('.modal-bg, .lightbox')) return;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && App.main.contains(a)) return;
+    route(true);
+  };
+  let syncT = null;
+  DB.onBusy = on => {
+    clearTimeout(syncT);
+    const bar = document.getElementById('syncbar');
+    if (!on) { bar.hidden = true; return; }
+    syncT = setTimeout(() => { bar.hidden = false; }, 500);   // chỉ hiện khi cập nhật lâu hơn nửa giây
+  };
+
+  // Lưu tạm thông tin tài khoản + cấu hình mật khẩu chủ trên máy → lần sau mở app hiện ngay, kiểm tra lại ngầm
+  const ME_KEY = 'pwa-me|' + C.mode, VAULT_KEY = 'pwa-vault|' + C.mode;
+  const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* bỏ qua */ } };
+  const whoAmI = () => (C.mode === 'live' ? (window.Auth && Auth.hint) || '' : API.demo.current()).toLowerCase();
+  function setVault(v) { if (v) { Vault.cfg = typeof v === 'string' ? JSON.parse(v) : v; lsSet(VAULT_KEY, Vault.cfg); App.lockIcon(); } }
+  function failStart(e) {
+    App.head(C.appName, { home: true });
+    App.main.innerHTML = `<div class="empty err">⚠️ ${U.esc(e.message)}<br><br>
+      ${C.mode === 'demo' ? '<button class="btn" onclick="localStorage.removeItem(\'pwa-demo-user\');location.reload()">Quay lại tài khoản chủ (demo)</button>'
+        : '<button class="btn" onclick="App.signOut()">Đăng nhập tài khoản khác</button>'}</div>`;
+  }
+  // Đăng xuất: xoá cả dữ liệu lưu tạm trên máy (bảng, ảnh, thông tin tài khoản)
+  App.signOut = async () => {
+    await DB.wipe();
+    try { localStorage.removeItem(ME_KEY); localStorage.removeItem(VAULT_KEY); } catch (e) { /* bỏ qua */ }
+    API.signOut(); location.hash = '#/'; location.reload();
+  };
 
   // Font chữ từ Google Fonts (thêm ?font=system vào địa chỉ để xem bằng font mặc định của máy)
   function loadFont() {
@@ -165,24 +207,41 @@
     Vault.onChange = () => App.lockIcon();
 
     if (C.mode === 'live') Auth.restore();
-    App.loading();
-    try {
-      App.user = await API.me();
-      const v = await API.getConfig('vault').catch(() => null);
-      if (v) Vault.cfg = typeof v === 'string' ? JSON.parse(v) : v;
-    } catch (e) {
-      App.head(C.appName, { home: true });
-      App.main.innerHTML = `<div class="empty err">⚠️ ${U.esc(e.message)}<br><br>
-        ${C.mode === 'demo' ? '<button class="btn" onclick="localStorage.removeItem(\'pwa-demo-user\');location.reload()">Quay lại tài khoản chủ (demo)</button>'
-          : '<button class="btn" onclick="API.signOut();location.reload()">Đăng nhập tài khoản khác</button>'}</div>`;
-      return;
+    // Đã mở app trên máy này (cùng tài khoản) → vào ngay bằng thông tin đã lưu, kiểm tra lại với máy chủ ở phía sau
+    const cached = lsGet(ME_KEY), who = whoAmI();
+    const fast = !!(cached && cached.email && who && cached.email.toLowerCase() === who);
+    if (lsGet(VAULT_KEY)) Vault.cfg = lsGet(VAULT_KEY);
+    if (fast) App.user = cached;
+    else {
+      App.loading();
+      try { App.user = await API.me(); lsSet(ME_KEY, App.user); } catch (e) { return failStart(e); }
     }
+    API.getConfig('vault').then(setVault).catch(() => {});
     document.getElementById('avatar').textContent = ((window.Auth && Auth.name) || App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
     await DB.load('ALBUM').catch(() => {});   // menu cần danh sách album
     App.buildNav();
     Music.init();
     window.addEventListener('hashchange', () => { App.closeDrawer(); route(); Music.sync(); });
-    route();
+    await route();
+    if (fast) {
+      API.me().then(u => {
+        lsSet(ME_KEY, u);
+        if (JSON.stringify(u) === JSON.stringify(App.user)) return;
+        App.user = u;   // quyền vừa được đổi → dựng lại menu và trang đang xem
+        App.buildNav(); route(true);
+      }).catch(async e => {
+        if (e.code !== 'NOT_ALLOWED') return;   // mất mạng: vẫn dùng dữ liệu đã lưu trên máy
+        await DB.wipe(); try { localStorage.removeItem(ME_KEY); } catch (er) { /* bỏ qua */ }
+        failStart(e);
+      });
+    }
+    setTimeout(() => DB.prefetch(), 1200);   // tải ngầm các mục còn lại
+    // Quay lại app sau hơn 5 phút (app để chạy nền trên điện thoại) → cập nhật ngầm trang đang xem
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt > 5 * 60000) { DB.fresh.clear(); DB.track.forEach(t => DB.later(t)); }
+    });
   }
 
   // Cài app (Android/PC) + service worker để chạy như app và mở nhanh

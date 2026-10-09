@@ -17,7 +17,7 @@
     restore() {
       try {
         const s = JSON.parse(localStorage.getItem('pwa-auth') || 'null');
-        if (s && s.t) this.set(s.t, true);
+        if (s && s.t) { this.hint = String(decodeJwt(s.t).email || '').toLowerCase(); this.set(s.t, true); }   // hint: email lần đăng nhập trước (kể cả khi token đã hết hạn)
       } catch (e) { /* bỏ qua */ }
     },
     valid() { return !!this.token && this.exp * 1000 > Date.now() + 60000; },
@@ -84,7 +84,9 @@
     update: (t, keyField, row) => call('update', { table: t, keyField, row }),
     remove: (t, keyField, key) => call('remove', { table: t, keyField, key }),
     upload: (t, field, name, dataUrl) => { const p = U.dataUrlParts(dataUrl); return call('upload', { table: t, field, name, mime: p.mime, data: p.data }); },
-    file: (t, keyField, key, field, thumb) => call('file', { table: t, keyField, key, field, thumb: !!thumb }),
+    file: (t, keyField, key, field, thumb, size) => call('file', { table: t, keyField, key, field, thumb: !!thumb, size }),
+    files: (items, size) => call('files', { items, size }),
+    batch: ts => call('batch', { tables: ts }),
     users: () => call('users'),
     saveUser: u => call('saveUser', { user: u }),
     deleteUser: email => call('deleteUser', { email }),

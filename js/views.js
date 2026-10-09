@@ -20,24 +20,36 @@
   V.badgeHtml = b => b && b.text ? `<span class="badge ${esc(b.cls || '')}">${esc(b.text)}</span>` : '';
   V.imgTag = (t, r, field, cls) => `<img class="${cls || 'th'}" data-img="${esc(t)}|${esc(DB.keyOf(t, r))}|${esc(field)}" alt="">`;
 
-  // Tải ảnh thật (qua API có kiểm tra quyền) cho mọi <img data-img>
+  // Tải ảnh thật (qua API có kiểm tra quyền) cho mọi <img data-img> — chỉ tải khi ảnh sắp hiện trên màn hình
+  const loadImg = img => {
+    const [t, key, field] = img.dataset.img.split('|');
+    const fail = mark => img.replaceWith(Object.assign(document.createElement('span'), { className: 'noimg ' + img.className, textContent: mark }));
+    Files.url(t, key, field, 'thumb').then(u => { if (u) img.src = u; else fail('🖼️'); }).catch(() => fail('⚠️'));
+  };
+  const imgIO = 'IntersectionObserver' in window
+    ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { imgIO.unobserve(e.target); loadImg(e.target); } }), { rootMargin: '400px 0px' })
+    : null;
   V.hydrate = root => {
     root.querySelectorAll('img[data-img]:not([data-loading])').forEach(img => {
       img.dataset.loading = '1';
+      img.decoding = 'async';
       const [t, key, field] = img.dataset.img.split('|');
-      Files.url(t, key, field, true).then(u => {
-        if (u) img.src = u; else img.replaceWith(Object.assign(document.createElement('span'), { className: 'noimg ' + img.className, textContent: '🖼️' }));
-      }).catch(() => img.replaceWith(Object.assign(document.createElement('span'), { className: 'noimg ' + img.className, textContent: '⚠️' })));
       if (img.classList.contains('big')) img.onclick = () => V.lightbox(t, key, field);
+      if (imgIO) imgIO.observe(img); else loadImg(img);
     });
   };
+  // Xem ảnh lớn: hiện ngay ảnh nhỏ đã có (mờ), tải bản ~1600px rồi thay vào
   V.lightbox = async (t, key, field) => {
     const bg = document.createElement('div');
     bg.className = 'lightbox'; bg.innerHTML = '<span class="spin"></span>';
     bg.onclick = () => bg.remove();
     document.body.appendChild(bg);
-    try { const u = await Files.url(t, key, field, false); bg.innerHTML = u ? `<img src="${u}" alt="">` : 'Không tải được ảnh'; }
-    catch (e) { bg.textContent = e.message; }
+    const low = Files.ready(t, key, field, 'thumb');
+    if (low) low.then(u => { if (u && bg.querySelector('.spin')) bg.innerHTML = `<img class="lb-low" src="${u}" alt=""><span class="spin"></span>`; }).catch(() => {});
+    try {
+      const u = await Files.url(t, key, field, 'preview');
+      bg.innerHTML = u ? `<img src="${u}" alt="">` : 'Không tải được ảnh';
+    } catch (e) { bg.textContent = e.message; }
   };
 
   // ---------------- TRANG CHỦ ----------------

@@ -1,6 +1,6 @@
 // Service worker: cho phép cài app và mở được khi mạng yếu.
 // Khi phát hành bản mới, tăng số phiên bản dưới đây để máy người dùng tải lại.
-const CACHE = 'app-v0.9.2';
+const CACHE = 'app-v0.9.3';
 const FONT_CACHE = 'fonts-v1';   // font giữ qua các phiên bản, không tải lại
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/util.js', 'js/icons.js', 'js/perm.js', 'js/vault.js', 'js/schema.js', 'js/api.js', 'js/mock.js',
@@ -8,9 +8,9 @@ const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))));
-// Xoá bộ nhớ của phiên bản cũ — giữ lại font và nhạc đã lưu ('music-…', do js/music.js quản lý)
+// Xoá bộ nhớ của phiên bản cũ — giữ lại font, nhạc đã lưu ('music-…', js/music.js) và ảnh đã lưu ('img-…', js/store.js)
 self.addEventListener('activate', e => e.waitUntil(
-  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== FONT_CACHE && !k.startsWith('music-')).map(k => caches.delete(k)))).then(() => self.clients.claim())));
+  caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== FONT_CACHE && !/^(music|img)-/.test(k)).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('message', e => { if (e.data === 'skip') self.skipWaiting(); });
 
 // Ưu tiên mạng (luôn có bản mới nhất), mất mạng hoặc chậm quá 8 giây thì dùng bản đã lưu.

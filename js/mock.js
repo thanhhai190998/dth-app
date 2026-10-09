@@ -164,7 +164,9 @@
     catch (e) { throw new Error('Bộ nhớ trình duyệt đầy (demo) — vào Cài đặt → Đặt lại dữ liệu demo'); }
   }
 
-  const wait = () => new Promise(r => setTimeout(r, 60));
+  // ?slow=1500 giả lập máy chủ trả lời chậm 1,5 giây (Apps Script thật thường 1–3 giây) để thử tốc độ
+  const LAG = Number(new URLSearchParams(location.search).get('slow')) || 0;
+  const wait = () => new Promise(r => setTimeout(r, 60 + LAG));
   const clone = o => JSON.parse(JSON.stringify(o));
   const currentEmail = () => localStorage.getItem(UKEY) || OWNER;
 
@@ -213,6 +215,21 @@
   window.MockAPI = {
     async me() { await wait(); return me(); },
     async list(t) { await wait(); const u = me(); return clone(rows(t).filter(r => level(u, t, r) >= 1)); },
+    async batch(ts) {
+      await wait(); const u = me(), out = {};
+      ts.forEach(t => { try { out[t] = clone(rows(t).filter(r => level(u, t, r) >= 1)); } catch (e) { out[t] = { error: e.message }; } });
+      return out;
+    },
+    async files(items) {
+      await wait(); const u = me();
+      return items.map(it => {
+        try {
+          const r = rows(it.table).find(x => String(x[it.keyField]) === String(it.key));
+          if (!r || level(u, it.table, r) < 1) throw new Error('Không có quyền xem file');
+          const du = files[r[it.field]]; return du ? U.dataUrlParts(du) : null;
+        } catch (e) { return { error: e.message }; }
+      });
+    },
     async add(t, kf, row) {
       await wait(); const u = me();
       if (level(u, t, row) < 2) throw new Error('Bạn không có quyền thêm vào mục này');
@@ -269,7 +286,7 @@
     // Nghe nhạc (demo): bài hát giả, âm thanh tạo bằng code (giai điệu ngắn ~25 giây)
     async songs() { await wait(); musicCan(); return DEMO_SONGS.map(s => ({ ...s })); },
     async audio(id) {
-      await new Promise(r => setTimeout(r, 400)); musicCan();
+      await new Promise(r => setTimeout(r, 400 + LAG)); musicCan();
       const s = DEMO_SONGS.find(x => x.id === id); if (!s) throw new Error('File không nằm trong thư mục nhạc');
       return { mime: 'audio/wav', data: demoTune(s.name) };
     },
