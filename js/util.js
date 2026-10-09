@@ -58,12 +58,15 @@
       wrap.innerHTML = `<form class="modal">
         <h3>${U.esc(title)}</h3>${message ? `<p class="muted">${message}</p>` : ''}
         ${fields.map(f => `<label class="fld"><span>${U.esc(f.label)}</span>
-          <input name="${f.name}" type="${f.type || 'text'}" autocomplete="${f.type === 'password' ? 'new-password' : 'off'}" ${f.required === false ? '' : 'required'}></label>`).join('')}
+          ${f.type === 'textarea' ? `<textarea name="${f.name}" rows="${f.rows || 5}" placeholder="${U.esc(f.placeholder || '')}" ${f.required === false ? '' : 'required'}>${U.esc(f.value || '')}</textarea>`
+            : `<input name="${f.name}" type="${f.type || 'text'}" value="${U.esc(f.value || '')}" placeholder="${U.esc(f.placeholder || '')}" ${f.maxlength ? `maxlength="${f.maxlength}"` : ''}
+              autocomplete="${f.type === 'password' ? 'new-password' : 'off'}" ${f.required === false ? '' : 'required'}>`}</label>`).join('')}
         <div class="row-end"><button type="button" class="btn ghost" data-x>Huỷ</button><button class="btn">${U.esc(ok)}</button></div>
       </form>`;
       document.body.appendChild(wrap);
       const form = wrap.querySelector('form');
-      form.querySelector('input')?.focus();
+      const first = form.querySelector('input, textarea');
+      if (first) { first.focus(); if (first.select) first.select(); }
       const done = v => { wrap.remove(); resolve(v); };
       wrap.querySelector('[data-x]').onclick = () => done(null);
       form.onsubmit = e => { e.preventDefault(); done(Object.fromEntries(new FormData(form))); };

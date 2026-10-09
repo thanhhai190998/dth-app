@@ -177,6 +177,7 @@
     if (!it || !canItem(it)) return App.notFound();
     V.visit(key);
     if (it.type === 'dash') return Dash.render(it);
+    if (it.type === 'music') return Music.render(it);
     const t = it.table, def = TT()[t], L = def.list || {};
     App.head(it.label, { back: true });
     App.loading();

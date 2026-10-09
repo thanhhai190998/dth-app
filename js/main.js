@@ -180,7 +180,8 @@
     document.getElementById('avatar').textContent = ((window.Auth && Auth.name) || App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
     await DB.load('ALBUM').catch(() => {});   // menu cần danh sách album
     App.buildNav();
-    window.addEventListener('hashchange', () => { App.closeDrawer(); route(); });
+    Music.init();
+    window.addEventListener('hashchange', () => { App.closeDrawer(); route(); Music.sync(); });
     route();
   }
 

@@ -181,6 +181,35 @@
   const level = (u, t, r) => permRowLevel(u, t, r, parentGetter);
   const findIdx = (t, kf, key) => rows(t).findIndex(r => String(r[kf]) === String(key));
 
+  // ---- Nhạc demo ----
+  const DEMO_SONGS = ['Bình minh trên biển', 'Cà phê sáng', 'Chiều Long Phú', 'Đêm thành phố', 'Gió mùa thu', 'Mưa trên phố cũ', 'Piano thư giãn', 'Tiếng sóng']
+    .map((n, i) => ({ id: 'demo-s' + (i + 1), file: n + '.mp3', name: n, size: Math.round((2.6 + i * 0.7) * 1048576), updated: '2026-10-01T00:00:00Z' }));
+  function musicCan() {
+    const u = me();
+    if (!u.admin && permRank((u.quyen || {}).NHAC) < 1) throw new Error('Bạn chưa được cấp quyền nghe nhạc');
+    return u;
+  }
+  // Tạo file WAV 8 kHz: giai điệu ngũ cung, mỗi bài một nhịp/giọng khác nhau (theo tên bài)
+  function demoTune(name) {
+    let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const rate = 8000, secs = 24, n = rate * secs, step = 0.22 + (h % 5) * 0.04, base = 196 * Math.pow(2, (h % 7) / 12);
+    const scale = [0, 2, 4, 7, 9, 12, 14, 16];
+    const buf = new Uint8Array(44 + n), dv = new DataView(buf.buffer);
+    const str = (o, s) => [...s].forEach((c, i) => buf[o + i] = c.charCodeAt(0));
+    str(0, 'RIFF'); dv.setUint32(4, 36 + n, true); str(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, rate, true); dv.setUint32(28, rate, true); dv.setUint16(32, 1, true); dv.setUint16(34, 8, true); str(36, 'data'); dv.setUint32(40, n, true);
+    let seed = h || 1; const rnd = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296;
+    let note = 0, f = base;
+    for (let i = 0; i < n; i++) {
+      const t = i / rate, k = Math.floor(t / step);
+      if (k !== note) { note = k; f = base * Math.pow(2, scale[Math.floor(rnd() * scale.length)] / 12); }
+      const local = t - k * step, env = Math.min(1, local * 40) * Math.exp(-local * 6);
+      buf[44 + i] = 128 + Math.round(70 * env * (Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(4 * Math.PI * f * t)) / 1.3);
+    }
+    let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
   window.MockAPI = {
     async me() { await wait(); return me(); },
     async list(t) { await wait(); const u = me(); return clone(rows(t).filter(r => level(u, t, r) >= 1)); },
@@ -236,6 +265,23 @@
       state.config[k] = v; persist(); return true;
     },
     signOut() { /* demo: không làm gì */ },
+
+    // Nghe nhạc (demo): bài hát giả, âm thanh tạo bằng code (giai điệu ngắn ~25 giây)
+    async songs() { await wait(); musicCan(); return DEMO_SONGS.map(s => ({ ...s })); },
+    async audio(id) {
+      await new Promise(r => setTimeout(r, 400)); musicCan();
+      const s = DEMO_SONGS.find(x => x.id === id); if (!s) throw new Error('File không nằm trong thư mục nhạc');
+      return { mime: 'audio/wav', data: demoTune(s.name) };
+    },
+    async musicGet() { await wait(); const u = musicCan(); const m = (state.music || {})[u.email]; return m ? clone(m) : { playlists: {}, state: null }; },
+    async musicSave(d) {
+      await wait(); const u = musicCan();
+      state.music = state.music || {};
+      const m = state.music[u.email] = state.music[u.email] || { playlists: {}, state: null };
+      if (d.playlists !== undefined) m.playlists = clone(d.playlists || {});
+      if (d.state !== undefined) m.state = clone(d.state);
+      persist(); return true;
+    },
 
     // Riêng cho demo
     demo: {

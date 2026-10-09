@@ -90,6 +90,10 @@
     deleteUser: email => call('deleteUser', { email }),
     getConfig: k => call('getConfig', { key: k }),
     setConfig: (k, v) => call('setConfig', { key: k, value: v }),
+    songs: () => call('songs'),
+    audio: id => call('audio', { id }),
+    musicGet: () => call('musicGet'),
+    musicSave: d => call('musicSave', d),
     signOut: () => Auth.signOut()
   };
 })();

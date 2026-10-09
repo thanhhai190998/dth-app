@@ -536,6 +536,9 @@
       { key: 'Calendar', ic: 'calendar', desc: 'Lịch họp, sự kiện' }
     ] },
     { key: 'g5', label: 'Hình ảnh', ic: 'image', color: 'var(--g5)', albums: true, items: [] },
+    { key: 'g8', label: 'Giải trí', ic: 'music', color: 'var(--g8)', items: [
+      { key: 'NHAC', label: 'Nghe nhạc', ic: 'music', desc: 'Nhạc trong thư mục Google Drive', type: 'music' }
+    ] },
     { key: 'g6', label: 'Bảo mật & tiện ích', ic: 'lock', color: 'var(--g6)', items: [
       { key: 'TAIKHOAN_MATKHAU', ic: 'key', desc: 'Mã hoá bằng mật khẩu chủ' }
     ] }

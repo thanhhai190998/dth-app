@@ -3,7 +3,7 @@
   const esc = U.esc, enc = encodeURIComponent;
   const A = (window.Admin = {});
   const initials = s => { const w = String(s || '?').replace(/@.*/, '').replace(/\(.*?\)/g, '').trim().split(/[\s._]+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[w.length - 1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
-  const isDash = it => it.type === 'dash';
+  const isDash = it => it.type === 'dash' || it.type === 'music';   // mục chỉ có mức Xem
 
   // ---------------- DANH SÁCH NGƯỜI DÙNG ----------------
   A.users = async () => {
@@ -31,7 +31,7 @@
   // ---------------- SỬA 1 NGƯỜI DÙNG ----------------
   // Mỗi mục có 3 mức: Không / Xem / Sửa. Bấm mức ở dòng nhóm = áp cho cả nhóm.
   const tri = (attr, cur, noEdit) => `<div class="tri" ${attr}>${[['', 'Không'], ['view', 'Xem'], ['edit', 'Sửa']].map(([v, l]) =>
-    `<button type="button" data-l="${v}" class="${v === cur ? 'on' : ''}" ${v === 'edit' && noEdit ? 'disabled title="Dashboard chỉ có quyền xem"' : ''}>${l}</button>`).join('')}</div>`;
+    `<button type="button" data-l="${v}" class="${v === cur ? 'on' : ''}" ${v === 'edit' && noEdit ? 'disabled title="Mục này chỉ có quyền xem"' : ''}>${l}</button>`).join('')}</div>`;
 
   A.user = async email => {
     if (!App.user.admin) return App.notFound();
