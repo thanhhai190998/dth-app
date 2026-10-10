@@ -161,7 +161,9 @@
     h += group('Bảo mật', srow('lock', 'var(--g6)', 'Mật khẩu chủ', esc(vSub) + (Vault.isSet() ? '' : ' · <b>quên là không khôi phục được</b>'), vAct)
       + (Vault.isSet() && App.user.owner ? srow('refresh', 'var(--g6)', 'Đổi mật khẩu chủ', 'Dữ liệu không cần mã hoá lại, đổi xong ngay', '<button class="btn sm ghost" data-act="chgvault">Đổi</button>') : '')
       + (Vault.isSet() && App.user.admin ? srow('key', 'var(--g6)', 'Mã hoá dữ liệu cũ', 'Tìm và mã hoá các giá trị còn để dạng chữ thường', '<button class="btn sm ghost" data-act="migrate">Chạy</button>') : '')
-      + (demo ? '' : srow('logout', 'var(--g6)', 'Đăng xuất trên mọi máy', 'Phiên đăng nhập giữ 30 ngày, tự gia hạn khi dùng · bấm để huỷ trên tất cả điện thoại, máy tính (vd khi mất máy)',
+      + (demo ? '' : srow('logout', 'var(--g6)', 'Đăng xuất trên mọi máy',
+          (Auth.hasSession() ? '✅ Máy này nhớ đăng nhập đến <b>' + U.fmtDate(new Date(Auth.sexp)) + '</b> (tự gia hạn khi dùng)'
+            : '⚠️ Chưa có phiên dài hạn — sẽ phải đăng nhập lại sau khoảng 1 giờ') + ' · bấm để huỷ đăng nhập trên tất cả điện thoại, máy tính (vd khi mất máy)',
           '<button class="btn sm ghost" data-act="logoutall">Đăng xuất</button>')));
 
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
