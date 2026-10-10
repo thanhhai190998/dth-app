@@ -38,19 +38,88 @@
       if (imgIO) imgIO.observe(img); else loadImg(img);
     });
   };
-  // Xem ảnh lớn: hiện ngay ảnh nhỏ đã có (mờ), tải bản ~1600px rồi thay vào
+  // Xem ảnh lớn: ảnh luôn vừa màn hình; chụm 2 ngón / chạm đúp / lăn chuột để phóng to ngay trong khung
+  // (chặn trình duyệt phóng to cả trang — trước đây thoát ra thì giao diện app bị phóng theo).
+  // Hiện ngay ảnh nhỏ đã có (mờ), tải bản ~1600px rồi thay vào.
   V.lightbox = async (t, key, field) => {
     const bg = document.createElement('div');
-    bg.className = 'lightbox'; bg.innerHTML = '<span class="spin"></span>';
-    bg.onclick = () => bg.remove();
+    bg.className = 'lightbox';
+    bg.innerHTML = `<div class="lb-stage"><span class="spin"></span></div>
+      <button type="button" class="lb-x" aria-label="Đóng">${Icon('x')}</button>
+      <div class="lb-hint">Chụm 2 ngón hoặc chạm đúp để phóng to · chạm ra ngoài ảnh để đóng</div>`;
     document.body.appendChild(bg);
-    const low = Files.ready(t, key, field, 'thumb');
-    if (low) low.then(u => { if (u && bg.querySelector('.spin')) bg.innerHTML = `<img class="lb-low" src="${u}" alt=""><span class="spin"></span>`; }).catch(() => {});
+    const stage = bg.querySelector('.lb-stage');
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    const close = () => { bg.remove(); document.removeEventListener('keydown', onKey); };
+    document.addEventListener('keydown', onKey);
+    bg.querySelector('.lb-x').onclick = close;
+    const show = (u, low) => { stage.innerHTML = `<img class="${low ? 'lb-low' : ''}" src="${u}" alt="" draggable="false">${low ? '<span class="spin"></span>' : ''}`; };
+    const lowP = Files.ready(t, key, field, 'thumb');
+    if (lowP) lowP.then(u => { if (u && stage.querySelector('.spin')) show(u, true); }).catch(() => {});
     try {
       const u = await Files.url(t, key, field, 'preview');
-      bg.innerHTML = u ? `<img src="${u}" alt="">` : 'Không tải được ảnh';
-    } catch (e) { bg.textContent = e.message; }
+      if (!bg.isConnected) return;
+      if (!u) { stage.textContent = 'Không tải được ảnh'; return; }
+      show(u, false);
+      zoomable(stage, stage.querySelector('img'), close);
+    } catch (e) { stage.textContent = e.message; }
   };
+
+  // Phóng to / kéo ảnh trong khung xem (ngón tay, chuột, bánh xe)
+  function zoomable(stage, img, close) {
+    let s = 1, tx = 0, ty = 0, g = null, lastTap = 0;
+    const pts = new Map();
+    const apply = () => {
+      const r = stage.getBoundingClientRect(), w = img.offsetWidth * s, h = img.offsetHeight * s;
+      const mx = Math.max(0, (w - r.width) / 2), my = Math.max(0, (h - r.height) / 2);
+      tx = Math.min(mx, Math.max(-mx, tx)); ty = Math.min(my, Math.max(-my, ty));
+      img.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+      stage.classList.toggle('zoomed', s > 1.01);
+    };
+    const rel = (x, y) => { const r = stage.getBoundingClientRect(); return { x: x - r.left - r.width / 2, y: y - r.top - r.height / 2 }; };
+    // Phóng quanh điểm p (toạ độ tính từ tâm khung): giữ nguyên điểm ảnh đang nằm dưới p
+    const zoomAt = (p, ns) => { ns = Math.min(5, Math.max(1, ns)); tx = p.x - (p.x - tx) * ns / s; ty = p.y - (p.y - ty) * ns / s; s = ns; if (s === 1) tx = ty = 0; apply(); };
+    const pair = () => { const [a, b] = [...pts.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, m: rel((a.x + b.x) / 2, (a.y + b.y) / 2) }; };
+
+    stage.addEventListener('pointerdown', e => {
+      try { stage.setPointerCapture(e.pointerId); } catch (er) { /* bỏ qua */ }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) { const p = pair(); g = { pinch: true, d0: p.d, m0: p.m, s0: s, tx0: tx, ty0: ty, moved: true }; }
+      else if (pts.size === 1) g = { pinch: false, x0: e.clientX, y0: e.clientY, tx0: tx, ty0: ty, t0: Date.now(), moved: false, onImg: e.target === img };
+    });
+    stage.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId) || !g) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (g.pinch && pts.size === 2) {
+        const p = pair(), ns = Math.min(5, Math.max(1, g.s0 * p.d / g.d0));
+        tx = p.m.x - (g.m0.x - g.tx0) * ns / g.s0; ty = p.m.y - (g.m0.y - g.ty0) * ns / g.s0; s = ns;
+        apply();
+      } else if (!g.pinch) {
+        const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+        if (Math.hypot(dx, dy) > 8) g.moved = true;
+        if (s > 1) { tx = g.tx0 + dx; ty = g.ty0 + dy; apply(); }
+      }
+    });
+    const end = e => {
+      if (!pts.has(e.pointerId)) return;
+      pts.delete(e.pointerId);
+      if (!g) return;
+      if (g.pinch) { if (pts.size === 0) { g = null; if (s < 1.05) zoomAt({ x: 0, y: 0 }, 1); } return; }
+      const tap = !g.moved && Date.now() - g.t0 < 350;
+      if (tap) {
+        const now = Date.now();
+        if (now - lastTap < 300) { lastTap = 0; zoomAt(rel(e.clientX, e.clientY), s > 1.01 ? 1 : 2.5); }   // chạm đúp
+        else {
+          lastTap = now;
+          if (!g.onImg && s <= 1.01) setTimeout(() => { if (lastTap === now) close(); }, 300);   // chạm ra ngoài ảnh → đóng
+        }
+      }
+      g = null;
+    };
+    stage.addEventListener('pointerup', end);
+    stage.addEventListener('pointercancel', end);
+    stage.addEventListener('wheel', e => { e.preventDefault(); zoomAt(rel(e.clientX, e.clientY), s * (e.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
+  }
 
   // ---------------- TRANG CHỦ ----------------
   // ---------------- MENU: các nhóm/mục người dùng được xem (dùng cho trang chủ + menu trượt) ----------------

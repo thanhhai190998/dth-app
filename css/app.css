@@ -47,7 +47,7 @@ h2, h3 { margin: 0 0 8px; }
 .demo-pill { display: none; font-size: 11px; font-weight: 800; letter-spacing: .5px; background: #ffd54a; color: #5a4300; border-radius: 6px; padding: 2px 7px; }
 .is-demo .demo-pill { display: inline-block; }
 
-main { max-width: 1040px; margin: 0 auto; padding: 12px 12px 20px;
+main { max-width: 1040px; margin: 0 auto; padding: 12px 12px 20px; overflow-x: clip;   /* chặn nội dung lỡ tràn ngang (điện thoại sẽ thu nhỏ cả trang) */
   min-height: calc(100vh - 116px - env(safe-area-inset-top)); }   /* trang ngắn: chân trang vẫn nằm sát đáy màn hình */
 @media (max-width: 759px) {
   main { min-height: calc(100vh - 204px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
@@ -323,7 +323,7 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
 .frow { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); }
 .frow:first-child { border-top: 0; }
 .frow .fk { color: var(--muted); font-size: 13.5px; flex: none; max-width: 45%; }
-.frow .fv { text-align: right; word-break: break-word; display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+.frow .fv { min-width: 0; text-align: right; word-break: break-word; display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
 .frow.stack { display: grid; gap: 4px; }
 .frow.stack .fk { max-width: none; }
 .frow.stack .fv { text-align: left; justify-content: flex-start; }
@@ -332,8 +332,8 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
 .ibtn3 .ico { width: 17px; height: 17px; }
 .fchip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 12px; border-radius: 10px; cursor: pointer;
   font: inherit; font-size: 13.5px; color: var(--text); background: var(--hover); border: 1px solid var(--line); }
-.fchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fchip .ico { color: var(--pri); }
+.fchip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fchip .ico { flex: none; color: var(--pri); }
 
 /* ---- Chi tiết: bảng con ---- */
 .rel-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -342,9 +342,20 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
 .rel .rows, .rel .row { border-radius: 12px; }
 .rel .rows { box-shadow: none; }
 .rel-empty { padding: 4px 2px 6px; }
-.lightbox { position: fixed; inset: 0; z-index: 60; background: #000e; display: flex; align-items: center; justify-content: center; color: #fff; cursor: zoom-out; }
-.lightbox img { max-width: 100%; max-height: 100%; }
-.lightbox .lb-low { width: min(100%, 900px); height: auto; max-height: 100%; object-fit: contain; filter: blur(6px); opacity: .7; }
+/* Xem ảnh lớn: touch-action none → trình duyệt không phóng to cả trang; app tự xử lý chụm / kéo / chạm đúp */
+.lightbox { position: fixed; inset: 0; z-index: 60; background: #000e; color: #fff; touch-action: none; overscroll-behavior: contain;
+  user-select: none; -webkit-user-select: none; }
+.lb-stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  padding: calc(60px + env(safe-area-inset-top)) 10px calc(40px + env(safe-area-inset-bottom)); }
+.lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; -webkit-user-drag: none; }
+.lb-stage.zoomed { cursor: grab; }
+.lb-x { position: absolute; z-index: 1; top: calc(10px + env(safe-area-inset-top)); right: 10px; width: 44px; height: 44px; border-radius: 50%;
+  border: 0; display: grid; place-items: center; cursor: pointer; color: #fff; background: #ffffff26; }
+.lb-x .ico { width: 22px; height: 22px; }
+.lb-hint { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); text-align: center; font-size: 12.5px;
+  color: #fffb; pointer-events: none; animation: lbfade 5s forwards; }
+@keyframes lbfade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.lightbox .lb-low { width: min(100%, 900px); height: auto; filter: blur(6px); opacity: .7; }
 .lightbox .lb-low + .spin { position: absolute; }
 /* Thanh mỏng dưới thanh tiêu đề khi đang cập nhật dữ liệu ngầm */
 .syncbar { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top)); height: 2px; z-index: 21; pointer-events: none; overflow: hidden; }
