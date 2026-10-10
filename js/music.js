@@ -13,7 +13,7 @@
   const M = (window.Music = {});
   let songs = [], byId = {}, playlists = {}, loaded = false, loading = null, offline = false;
   let st = { id: null, time: 0, vol: 100, view: ALL, ctx: ALL, shuffle: false, repeat: false, t: 0 };
-  let audio = null, urlNow = null, reqToken = 0, resumeAt = 0, isLoading = false, unlocked = false;
+  let audio = null, urlNow = null, reqToken = 0, resume = null, isLoading = false, unlocked = false;   // resume = { id, time }: chỗ nghe dở lần trước
   let miniClosed = true, cardVisible = false, seeking = false, lastServer = 0, plTimer = null;
   const inflight = {};
 
@@ -128,7 +128,7 @@
     st = Object.assign(st, s, { t: s.t || 0 });
     if (!st.ctx) st.ctx = st.view || ALL;
     if (audio) audio.volume = st.vol / 100;
-    if (!audio || !audio.src) resumeAt = st.time || 0;
+    if (!audio || !audio.src) resume = st.id && st.time > 1 ? { id: st.id, time: st.time } : null;
   }
   // Lưu chỗ đang nghe: trên máy mỗi lần gọi, lên máy chủ tối đa 20 giây/lần (force = lưu ngay)
   function saveState(force) {
@@ -177,12 +177,15 @@
   const queue = (c = st.ctx) => c === ALL ? songs : (playlists[c] || []).map(id => byId[id]).filter(Boolean);
   const idx = () => queue().findIndex(s => s.id === st.id);
 
-  M.play = async (id, ctx) => {
+  // Bấm vào 1 bài = phát từ đầu. Chỉ nút ▶ "nghe tiếp" (opts.resume) mới phát tiếp từ chỗ dở lần trước, và chỉ đúng bài đó.
+  M.play = async (id, ctx, opts) => {
     const s = byId[id]; if (!s) return;
     unlock();
     const a = el();
     if (ctx) st.ctx = ctx;
     miniClosed = false;
+    const at = opts && opts.resume && resume && resume.id === id ? resume.time : 0;
+    resume = null;
     if (id === st.id && a.src && a.src !== SILENT && !isLoading) { a.currentTime = 0; a.play().catch(() => {}); return; }
     const my = ++reqToken;
     st.id = id; isLoading = true;
@@ -194,7 +197,6 @@
       if (urlNow) URL.revokeObjectURL(urlNow);
       urlNow = URL.createObjectURL(b);
       a.src = urlNow;
-      const at = resumeAt; resumeAt = 0;
       if (at > 1) a.addEventListener('loadedmetadata', () => { if (at < a.duration - 1) a.currentTime = at; }, { once: true });
       isLoading = false;
       await a.play().catch(() => {});
@@ -211,7 +213,7 @@
     unlock();
     const a = el();
     if (!st.id) { const q = queue(st.view); if (q.length) M.play(q[0].id, st.view); return; }
-    if (!a.src || a.src === SILENT) { M.play(st.id); return; }   // nghe tiếp chỗ dở sau khi mở lại app
+    if (!a.src || a.src === SILENT) { M.play(st.id, null, { resume: true }); return; }   // nghe tiếp chỗ dở sau khi mở lại app
     if (a.paused) a.play().catch(() => {}); else a.pause();
   };
   M.next = () => {
@@ -339,7 +341,7 @@
       $('muEq').classList.toggle('on', playing);
       $('muSub').textContent = isLoading ? (cached(st.id) ? 'Đang mở…' : 'Đang tải từ Google Drive…')
         : !s ? (offline ? 'Đang mất mạng — chỉ phát được bài đã lưu trên máy' : songs.length + ' bài trong thư mục nhạc')
-        : (!audio || !audio.src || audio.src === SILENT) && resumeAt > 5 ? 'Bấm phát để nghe tiếp từ ' + fmt(resumeAt)
+        : resume && resume.id === st.id && resume.time > 5 ? 'Bấm ▶ để nghe tiếp từ ' + fmt(resume.time)
         : ctxName(st.ctx) + ' · ' + mb(s.size);
       $('muDl').hidden = !s;
       document.querySelectorAll('.mu-ctrl [data-a="shuffle"]').forEach(b => b.classList.toggle('on', st.shuffle));
