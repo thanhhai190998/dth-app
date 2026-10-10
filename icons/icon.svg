@@ -1,24 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2aa6ff"/>
-      <stop offset="1" stop-color="#005fc2"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
     </linearGradient>
+    <radialGradient id="sheen" cx="30%" cy="22%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    
+    
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <g stroke="#fff" stroke-width="22" stroke-linecap="round">
-    <line x1="256" y1="152" x2="158" y2="328"/>
-    <line x1="256" y1="152" x2="354" y2="328"/>
-    <line x1="158" y1="328" x2="354" y2="328"/>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/><rect width="512" height="512" rx="116" fill="url(#sheen)"/>
+  <g stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" opacity="0.85">
+    <line x1="256" y1="272" x2="256" y2="176"/>
+    <line x1="256" y1="272" x2="340.2" y2="320"/>
+    <line x1="256" y1="272" x2="171.8" y2="320"/>
   </g>
-  <g fill="#fff">
-    <circle cx="256" cy="152" r="54"/>
-    <circle cx="158" cy="328" r="54"/>
-    <circle cx="354" cy="328" r="54"/>
+
+  
+  <circle cx="256" cy="272" r="33" fill="#FFFFFF"/>
+  <circle cx="256" cy="272" r="14" fill="#1E3A8A"/>
+
+  
+  <g>
+    <circle cx="256" cy="124" r="58" fill="#FFFFFF"/>
   </g>
-  <g fill="#0b84f0">
-    <circle cx="256" cy="152" r="22"/>
-    <circle cx="158" cy="328" r="22"/>
-    <circle cx="354" cy="328" r="22"/>
+  <g fill="#1E3A8A">
+    <circle cx="256" cy="111" r="13.5"/>
+    <path d="M 226 152 C 226 130 246 122 256 122 C 266 122 286 130 286 152 C 286 158 280 160 256 160 C 232 160 226 158 226 152 Z"/>
   </g>
+
+  
+  <g>
+    <circle cx="127.8" cy="346" r="58" fill="#FFFFFF"/>
+  </g>
+  <g fill="#1E3A8A">
+    <rect x="103" y="348" width="14" height="26" rx="5"/>
+    <rect x="121" y="334" width="14" height="40" rx="5"/>
+    <rect x="139" y="322" width="14" height="52" rx="5"/>
+  </g>
+
+  
+  <g>
+    <circle cx="384.2" cy="346" r="58" fill="#FFFFFF"/>
+  </g>
+  <path d="M 362 347 L 377 362 L 408 328" fill="none" stroke="#1E3A8A" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
