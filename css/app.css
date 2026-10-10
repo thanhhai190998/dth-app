@@ -85,6 +85,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 12px 12px 20px; overflow-x: c
 .hsearch:focus-within { background: rgba(255, 255, 255, .26); }
 .hsearch .ico { opacity: .9; }
 .hsearch input { background: transparent; border: 0; color: #fff; min-height: 44px; padding: 0; outline: none; }
+.hsearch input:focus { outline: none; box-shadow: none; }   /* bỏ viền focus chung (input:focus) — khung .hsearch đã sáng lên khi đang gõ */
 .hsearch input::placeholder { color: rgba(255, 255, 255, .78); }
 .hsearch input::-webkit-search-cancel-button { filter: invert(1); }
 
@@ -131,6 +132,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 12px 12px 20px; overflow-x: c
 .hsec-h h2 { margin: 0; font-size: 16px; display: inline-flex; align-items: center; gap: 6px; }
 .hsec-h h2 .ico { color: var(--g4); }
 .mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 4px; }
+.mgrid .mg-empty { grid-column: 1 / -1; padding: 6px 2px; }   /* thông báo trải hết hàng, không bị bó trong 1 ô */
 @media (min-width: 760px) { .mgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; } }
 .mt { display: grid; justify-items: center; align-content: start; gap: 6px; padding: 10px 4px 8px; border-radius: 14px; color: var(--text);
   text-align: center; transition: background .12s, transform .12s; }
@@ -408,7 +410,9 @@ label.qd { display: inline-flex; align-items: center; gap: 6px; }
 .lbl { font-size: 13.5px; color: var(--muted); font-weight: 500; }
 .req { color: var(--bad); }
 input, select, textarea { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; width: 100%; min-height: 42px; }
-input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--pri) 45%, transparent); border-color: var(--pri); }
+input:focus, select:focus, textarea:focus { border-color: var(--pri); }
+/* Viền sáng: ô chữ luôn có khi đang gõ; công tắc / thanh trượt / ô chọn chỉ có khi dùng bàn phím (không hiện sau khi bấm chuột, chạm) */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid color-mix(in srgb, var(--pri) 45%, transparent); }
 input[readonly] { background: var(--hover); }
 input[type=checkbox] { width: 20px; height: 20px; min-height: 0; accent-color: var(--pri); margin: 0; vertical-align: middle; }
 input[type=file] { padding: 7px; }

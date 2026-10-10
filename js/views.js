@@ -229,7 +229,7 @@
       ['hfav', 'hall'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = !!q; });
       App.main.querySelectorAll('.kpi-row, .quick').forEach(el => { el.hidden = !!q; });
       const rs = document.getElementById('hres');
-      if (rs) { rs.hidden = !q; document.getElementById('ritems').innerHTML = res.length ? res.map(mini).join('') : '<div class="muted small">Không có mục nào khớp</div>'; }
+      if (rs) { rs.hidden = !q; document.getElementById('ritems').innerHTML = res.length ? res.map(mini).join('') : '<div class="muted small mg-empty">Không có mục nào khớp</div>'; }
       document.querySelector('.hero-in').classList.toggle('with-kpi', kpis.length > 0 && !q);
     };
 
