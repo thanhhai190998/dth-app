@@ -1,10 +1,12 @@
 // =====================================================================
 //  API THẬT: gọi Apps Script (Google Sheets) + đăng nhập Google
-//  Mọi yêu cầu đều kèm ID token Google; Apps Script kiểm tra token và
-//  bảng phân quyền trước khi trả dữ liệu.
+//  Đăng nhập Google cho token chỉ sống 1 giờ → đổi ngay lấy PHIÊN của app (30 ngày, tự gia hạn
+//  mỗi lần dùng). Mọi yêu cầu kèm phiên (hoặc token Google khi chưa có phiên); Apps Script kiểm tra
+//  phiên/token và bảng phân quyền trước khi trả dữ liệu.
 // =====================================================================
 (function () {
   const CFG = () => window.APP_CONFIG;
+  const SKEY = 'pwa-session';
 
   function decodeJwt(t) {
     const b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -13,26 +15,44 @@
   }
 
   const Auth = (window.Auth = {
-    token: null, exp: 0, email: '', name: '', picture: '',
+    token: null, exp: 0, email: '', name: '', picture: '', session: null, sexp: 0,
     restore() {
       try {
         const s = JSON.parse(localStorage.getItem('pwa-auth') || 'null');
         if (s && s.t) { this.hint = String(decodeJwt(s.t).email || '').toLowerCase(); this.set(s.t, true); }   // hint: email lần đăng nhập trước (kể cả khi token đã hết hạn)
+        const ss = JSON.parse(localStorage.getItem(SKEY) || 'null');
+        if (ss && ss.sid && ss.exp > Date.now()) {
+          this.session = ss.sid; this.sexp = ss.exp; this.hint = this.hint || ss.email;
+          if (!this.token) { this.email = ss.email; this.name = ss.name || ''; this.given = ss.given || ''; this.picture = ss.picture || ''; }
+        }
       } catch (e) { /* bỏ qua */ }
     },
-    valid() { return !!this.token && this.exp * 1000 > Date.now() + 60000; },
+    hasSession() { return !!this.session && this.sexp > Date.now(); },
+    tokenValid() { return !!this.token && this.exp * 1000 > Date.now() + 60000; },
+    valid() { return this.hasSession() || this.tokenValid(); },
     set(cred, silent) {
       const p = decodeJwt(cred);
       if (p.exp * 1000 <= Date.now() + 60000) { if (silent) return; }
       this.token = cred; this.exp = p.exp; this.email = p.email; this.name = p.name || ''; this.given = p.given_name || ''; this.picture = p.picture || '';
       try { localStorage.setItem('pwa-auth', JSON.stringify({ t: cred })); } catch (e) { /* bỏ qua */ }
     },
+    setSession(sid, exp) {
+      this.session = sid; this.sexp = exp;
+      const email = String(this.email || '').toLowerCase();
+      try { localStorage.setItem(SKEY, JSON.stringify({ sid, exp, email, name: this.name, given: this.given, picture: this.picture })); } catch (e) { /* bỏ qua */ }
+    },
+    clearSession() {
+      this.session = null; this.sexp = 0;
+      try { localStorage.removeItem(SKEY); } catch (e) { /* bỏ qua */ }
+    },
     clear() {
       this.token = null; this.exp = 0;
       try { localStorage.removeItem('pwa-auth'); } catch (e) { /* bỏ qua */ }
     },
-    signOut() {
-      this.clear();
+    async signOut() {
+      const sid = this.session;
+      this.clear(); this.clearSession();
+      if (sid) await Promise.race([post({ action: 'logout', session: sid }).catch(() => {}), new Promise(r => setTimeout(r, 3000))]);   // huỷ phiên trên máy chủ
       try { google.accounts.id.disableAutoSelect(); } catch (e) { /* bỏ qua */ }
     },
     // Hiện màn hình đăng nhập Google, chờ đến khi có token
@@ -60,17 +80,35 @@
     }
   });
 
+  async function post(body) {
+    let res;
+    // Không đặt Content-Type → text/plain, tránh preflight CORS với Apps Script
+    try { res = await fetch(CFG().apiUrl, { method: 'POST', body: JSON.stringify(body) }); }
+    catch (e) { throw new Error('Mất kết nối máy chủ'); }
+    return res.json();
+  }
+
+  // Đổi token Google lấy phiên 30 ngày (gọi 1 lần ngay sau khi đăng nhập; nhiều yêu cầu cùng lúc dùng chung)
+  let exchanging = null, noSession = false;
+  function exchange() {
+    if (Auth.hasSession() || noSession || !Auth.tokenValid()) return Promise.resolve();
+    return exchanging || (exchanging = post({ action: 'login', token: Auth.token }).then(j => {
+      if (j.ok && j.data && j.data.session) Auth.setSession(j.data.session, j.data.exp);
+      else if (j.error === 'Thao tác không hợp lệ') noSession = true;   // máy chủ bản cũ chưa có phiên → dùng token Google như trước
+    }).catch(() => {}).finally(() => { exchanging = null; }));
+  }
+
   async function call(action, payload, retry = true) {
     if (!CFG().apiUrl) throw new Error('Chưa cấu hình apiUrl trong js/config.js');
-    if (!Auth.valid()) await Auth.signIn();
-    let res;
-    try {
-      // Không đặt Content-Type → text/plain, tránh preflight CORS với Apps Script
-      res = await fetch(CFG().apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, token: Auth.token }, payload || {})) });
-    } catch (e) { throw new Error('Mất kết nối máy chủ'); }
-    const j = await res.json();
+    if (!Auth.hasSession()) {
+      if (!Auth.tokenValid()) await Auth.signIn();
+      await exchange();
+    }
+    const cred = Auth.hasSession() ? { session: Auth.session } : { token: Auth.token };
+    const j = await post(Object.assign({ action }, cred, payload || {}));
     if (!j.ok) {
-      if (j.error === 'AUTH' && retry) { Auth.clear(); return call(action, payload, false); }
+      // Phiên / token hết hạn hoặc đã bị huỷ → bỏ đi, thử lại (cần thì hiện màn hình đăng nhập Google)
+      if (j.error === 'AUTH' && retry) { if (cred.session) Auth.clearSession(); else Auth.clear(); return call(action, payload, false); }
       const err = new Error(j.error === 'NOT_ALLOWED' ? 'Tài khoản ' + (j.email || '') + ' chưa được cấp quyền dùng app' : j.error);
       err.code = j.error; throw err;
     }
@@ -96,6 +134,7 @@
     audio: id => call('audio', { id }),
     musicGet: () => call('musicGet'),
     musicSave: d => call('musicSave', d),
+    logoutAll: () => call('logoutAll'),
     signOut: () => Auth.signOut()
   };
 })();

@@ -160,7 +160,9 @@
 
     h += group('Bảo mật', srow('lock', 'var(--g6)', 'Mật khẩu chủ', esc(vSub) + (Vault.isSet() ? '' : ' · <b>quên là không khôi phục được</b>'), vAct)
       + (Vault.isSet() && App.user.owner ? srow('refresh', 'var(--g6)', 'Đổi mật khẩu chủ', 'Dữ liệu không cần mã hoá lại, đổi xong ngay', '<button class="btn sm ghost" data-act="chgvault">Đổi</button>') : '')
-      + (Vault.isSet() && App.user.admin ? srow('key', 'var(--g6)', 'Mã hoá dữ liệu cũ', 'Tìm và mã hoá các giá trị còn để dạng chữ thường', '<button class="btn sm ghost" data-act="migrate">Chạy</button>') : ''));
+      + (Vault.isSet() && App.user.admin ? srow('key', 'var(--g6)', 'Mã hoá dữ liệu cũ', 'Tìm và mã hoá các giá trị còn để dạng chữ thường', '<button class="btn sm ghost" data-act="migrate">Chạy</button>') : '')
+      + (demo ? '' : srow('logout', 'var(--g6)', 'Đăng xuất trên mọi máy', 'Phiên đăng nhập giữ 30 ngày, tự gia hạn khi dùng · bấm để huỷ trên tất cả điện thoại, máy tính (vd khi mất máy)',
+          '<button class="btn sm ghost" data-act="logoutall">Đăng xuất</button>')));
 
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
       `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`));
@@ -189,6 +191,11 @@
 
     const on = (act, fn) => { const el = App.main.querySelector(`[data-act="${act}"]`); if (el) el[el.tagName === 'SELECT' ? 'onchange' : 'onclick'] = fn; };
     on('signout', () => App.signOut());
+    on('logoutall', async () => {
+      if (!await U.confirm('Đăng xuất tài khoản này trên TẤT CẢ điện thoại, máy tính đang dùng app (kể cả máy này)?')) return;
+      try { const n = await API.logoutAll(); U.toast('Đã huỷ ' + n + ' phiên đăng nhập', 'ok'); } catch (e) { return U.toast(e.message, 'err'); }
+      setTimeout(() => App.signOut(), 800);
+    });
     on('wipe', async () => {
       if (!await U.confirm('Xoá dữ liệu lưu tạm trên máy này (danh sách, ảnh nhỏ)? Dữ liệu trên Google Sheets không bị ảnh hưởng; lần mở sau sẽ tải lại.')) return;
       await DB.wipe(); U.toast('Đã xoá dữ liệu lưu tạm', 'ok'); location.reload();

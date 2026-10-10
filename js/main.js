@@ -207,7 +207,7 @@
   App.signOut = async () => {
     await DB.wipe();
     try { localStorage.removeItem(ME_KEY); localStorage.removeItem(VAULT_KEY); } catch (e) { /* bỏ qua */ }
-    API.signOut(); location.hash = '#/'; location.reload();
+    await API.signOut(); location.hash = '#/'; location.reload();
   };
 
   // Font chữ từ Google Fonts (thêm ?font=system vào địa chỉ để xem bằng font mặc định của máy)

@@ -281,7 +281,8 @@
       if (k === 'vault' && state.config.vault && !u.owner) throw new Error('Chỉ chủ app được thay mật khẩu chủ');
       state.config[k] = v; persist(); return true;
     },
-    signOut() { /* demo: không làm gì */ },
+    async signOut() { /* demo: không làm gì */ },
+    async logoutAll() { await wait(); return 0; },
 
     // Nghe nhạc (demo): bài hát giả, âm thanh tạo bằng code (giai điệu ngắn ~25 giây)
     async songs() { await wait(); musicCan(); return DEMO_SONGS.map(s => ({ ...s })); },
