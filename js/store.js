@@ -119,6 +119,22 @@
         if (had && background) changed.push(t);
       });
       if (changed.length && this.onChange) this.onChange(changed);
+      return changed;
+    },
+
+    // Nút ⟳: hỏi lại máy chủ mọi bảng được phép (bảng của trang đang xem trước) → số bảng có thay đổi
+    async refresh() {
+      this.fresh.clear(); this.queue.clear(); clearTimeout(this._qt);
+      const all = Object.keys(T()).filter(t => permTableLevel(App.user, t) > 0);
+      const cur = all.filter(t => this.track.has(t)), rest = all.filter(t => !this.track.has(t));
+      let n = 0;
+      const run = async ts => { (await this.fetch(ts, true)).forEach(x => { n += Array.isArray(x) ? x.length : 0; }); };
+      this.setBusy(1);
+      try {
+        if (cur.length) await run(cur);
+        for (let i = 0; i < rest.length; i += CHUNK) await run(rest.slice(i, i + CHUNK));
+      } finally { this.setBusy(-1); }
+      return n;
     },
 
     // Sau khi trang đầu đã hiện: tải ngầm mọi bảng được phép → lần đầu mở mục nào cũng nhanh;

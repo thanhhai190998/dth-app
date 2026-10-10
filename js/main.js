@@ -147,14 +147,41 @@
   }
   App.route = route;
 
-  // Dữ liệu cập nhật ngầm có thay đổi → vẽ lại trang đang xem (trừ khi người dùng đang nhập liệu)
+  // Dữ liệu cập nhật ngầm có thay đổi → vẽ lại trang đang xem (trừ khi người dùng đang nhập liệu);
+  // đang cuộn thì chờ dừng cuộn rồi mới vẽ lại, không làm giật trang
+  let lastScroll = 0, waitT = null;
+  const waiting = new Set();
+  window.addEventListener('scroll', () => { lastScroll = Date.now(); }, { passive: true });
+  window.addEventListener('touchmove', () => { lastScroll = Date.now(); }, { passive: true });
   DB.onChange = changed => {
     if (changed.includes('ALBUM') && App.user) App.renderDrawer();
-    if (!changed.some(t => DB.track.has(t))) return;
+    changed.forEach(t => waiting.add(t));
+    clearTimeout(waitT);
+    if (Date.now() - lastScroll < 1500) { waitT = setTimeout(() => DB.onChange([]), 1600); return; }
+    const ts = [...waiting]; waiting.clear();
+    if (!ts.some(t => DB.track.has(t))) return;
     if (/^#\/(f|admin\/u)\//.test(location.hash) || document.querySelector('.modal-bg, .lightbox')) return;
     const a = document.activeElement;
     if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && App.main.contains(a)) return;
     route(true);
+  };
+
+  // Nút ⟳: có bản app mới thì cập nhật app; không thì làm mới dữ liệu (không tải lại trang → nhạc vẫn chạy)
+  App.pendingSW = null;
+  App.refresh = async () => {
+    if (App.pendingSW) { App.pendingSW.postMessage('skip'); return; }
+    const b = document.getElementById('update');
+    if (b.classList.contains('busy')) return;
+    b.classList.add('busy');
+    try {
+      API.getConfig('vault').then(setVault).catch(() => {});
+      const u = await API.me();
+      lsSet(ME_KEY, u);
+      if (JSON.stringify(u) !== JSON.stringify(App.user)) { App.user = u; App.buildNav(); }
+      const n = await DB.refresh();
+      U.toast(n ? 'Đã cập nhật dữ liệu mới' : 'Dữ liệu đã là mới nhất', 'ok');
+    } catch (e) { U.toast('Không làm mới được: ' + e.message, 'err'); }
+    finally { b.classList.remove('busy'); }
   };
   let syncT = null;
   DB.onBusy = on => {
@@ -204,6 +231,7 @@
     document.getElementById('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
     document.getElementById('lock').onclick = async () => { if (Vault.isOpen()) Vault.lock(); else await Vault.ensureOpen(); };
     document.getElementById('menu').onclick = () => { location.hash = '#/settings'; };
+    const ub = document.getElementById('update'); ub.innerHTML = Icon('refresh'); ub.onclick = () => App.refresh();
     Vault.onChange = () => App.lockIcon();
 
     if (C.mode === 'live') Auth.restore();
@@ -247,15 +275,17 @@
   // Cài app (Android/PC) + service worker để chạy như app và mở nhanh
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); App.installPrompt = e; });
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    // Có bản app mới đang chờ → chấm vàng trên nút ⟳, bấm nút để chuyển sang bản mới
+    const pending = sw => {
+      if (!navigator.serviceWorker.controller) return;
+      const b = document.getElementById('update');
+      App.pendingSW = sw; b.classList.add('upd'); b.title = 'Có bản app mới — bấm để cập nhật';
+    };
     navigator.serviceWorker.register('sw.js').then(reg => {
+      if (reg.waiting) pending(reg.waiting);
       reg.addEventListener('updatefound', () => {
         const nw = reg.installing;
-        nw && nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            const b = document.getElementById('update'); b.hidden = false;
-            b.onclick = () => { nw.postMessage('skip'); };
-          }
-        });
+        nw && nw.addEventListener('statechange', () => { if (nw.state === 'installed') pending(nw); });
       });
     }).catch(e => console.warn('SW', e));
     // Chỉ tải lại khi CẬP NHẬT bản mới (không tải lại ở lần mở đầu tiên — tránh cắt ngang lúc đăng nhập)
