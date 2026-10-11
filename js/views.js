@@ -519,6 +519,59 @@
 
   // ---------------- FORM THÊM / SỬA ----------------
   const SEG_MAX = 6;   // danh sách chọn có ≤ 6 lựa chọn → hiện thành nút bấm thay vì danh sách thả xuống
+
+  // Lựa chọn của ô "chọn hoặc gõ thêm" (giống AppSheet "cho phép giá trị khác"): các giá trị khai báo trong schema
+  // + mọi giá trị đã từng nhập trong dữ liệu (hay dùng xếp trước); trùng chữ hoa/thường hoặc dấu chỉ giữ 1
+  V.enumOpts = (t, f) => {
+    const cnt = new Map();
+    DB.rows(t).forEach(r => { const v = String(r[f.n] ?? '').trim(); if (v) cnt.set(v, (cnt.get(v) || 0) + 1); });
+    const seen = new Set(), out = [];
+    const add = v => { const k = U.norm(v).trim(); if (v && !seen.has(k)) { seen.add(k); out.push(v); } };
+    f.opts.forEach(add);
+    [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || a.localeCompare(b, 'vi')).forEach(add);
+    return out;
+  };
+
+  // Ô chọn có thể gõ giá trị mới (thay <datalist> — trình duyệt hiện lẫn thành "Saved data", thiếu ô tìm)
+  V.combo = root => root.querySelectorAll('.cbx').forEach(box => {
+    const inp = box.querySelector('input'), pop = box.querySelector('.cbx-pop'), opts = JSON.parse(box.dataset.opts || '[]');
+    let act = -1, items = [], all = true;
+    const draw = () => {
+      const q = U.norm(inp.value.trim()), exact = q && opts.some(o => U.norm(o) === q);
+      items = (q && !all ? opts.filter(o => U.norm(o).includes(q)) : opts).map(v => ({ v }));
+      if (q && !exact) items.push({ v: inp.value.trim(), add: true });   // "Thêm mới" ở cuối — tránh lỡ chọn khi đã có giá trị gần đúng
+      pop.innerHTML = items.length ? items.map((o, i) => `<button type="button" class="cbx-o ${o.add ? 'add' : ''} ${i === act ? 'on' : ''} ${!o.add && U.norm(o.v) === q ? 'sel' : ''}" data-i="${i}" role="option">
+          ${o.add ? `${Icon('plus', 'sm')}<span>Thêm mới: <b>${esc(o.v)}</b></span>` : `<span>${esc(o.v)}</span>${U.norm(o.v) === q ? Icon('check', 'sm') : ''}`}</button>`).join('')
+        : '<div class="cbx-empty">Chưa có lựa chọn nào — gõ để thêm mới</div>';
+    };
+    const open = showAll => {
+      all = showAll; act = -1; draw();
+      if (pop.hidden) { pop.hidden = false; box.classList.add('open'); inp.setAttribute('aria-expanded', 'true'); requestAnimationFrame(() => pop.scrollIntoView({ block: 'nearest' })); }
+    };
+    const close = () => { pop.hidden = true; box.classList.remove('open'); inp.setAttribute('aria-expanded', 'false'); };
+    let picking = false;
+    const pick = i => {
+      const o = items[i]; if (!o) return;
+      inp.value = o.v; picking = true; inp.dispatchEvent(new Event('input', { bubbles: true })); picking = false;   // báo form "đã sửa"
+      close();
+    };
+    inp.addEventListener('focus', () => open(true));
+    inp.addEventListener('click', () => { if (pop.hidden) open(true); });
+    inp.addEventListener('input', () => { if (!picking) open(false); });
+    inp.addEventListener('keydown', e => {
+      if (pop.hidden) { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); act = Math.max(0, Math.min(items.length - 1, act + (e.key === 'ArrowDown' ? 1 : -1))); draw();
+        const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') { e.preventDefault(); if (act >= 0) pick(act); else close(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+      else if (e.key === 'Tab') close();
+    });
+    box.querySelector('.cbx-tg').addEventListener('click', () => { if (pop.hidden) { inp.focus(); open(true); } else close(); });
+    pop.addEventListener('mousedown', e => e.preventDefault());   // bấm vào danh sách không làm mất con trỏ ở ô nhập
+    pop.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) pick(+b.dataset.i); });
+    inp.addEventListener('blur', () => setTimeout(close, 150));
+  });
   const moneyFmt = d => d ? new Intl.NumberFormat('vi-VN').format(Number(d)) : '';
 
   function fieldInput(t, f, r, isNew, def) {
@@ -547,7 +600,9 @@
         break;
       }
       case 'enum':
-        if (f.other) input = `<input ${nm} list="dl_${esc(f.n)}" value="${esc(v)}" placeholder="Chọn hoặc gõ"><datalist id="dl_${esc(f.n)}">${f.opts.map(o => `<option value="${esc(o)}">`).join('')}</datalist>`;
+        if (f.other) input = `<div class="cbx" data-opts="${esc(JSON.stringify(V.enumOpts(t, f)))}">
+          <input ${nm} value="${esc(v)}" placeholder="Chọn trong danh sách hoặc gõ để thêm mới" autocomplete="off" role="combobox" aria-expanded="false" ${f.req ? 'required' : ''}>
+          <button type="button" class="cbx-tg" tabindex="-1" aria-label="Mở danh sách">${Icon('chevron')}</button><div class="cbx-pop" role="listbox" hidden></div></div>`;
         else if (f.opts.length <= SEG_MAX) input = seg([...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => ({ v: o, l: o })), v);
         else input = `<select ${nm}><option value=""></option>${[...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
         break;
@@ -613,6 +668,7 @@
       <div class="fbar"><button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">${Icon('check')} Lưu</button></div></form>`;
     const form = App.main.querySelector('form');
     V.hydrate(form);
+    V.combo(form);
     const q = sel => form.querySelector(sel);
     const byName = n => q(`[name="${CSS.escape(n)}"]`);
     let dirty = false;
