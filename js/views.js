@@ -280,7 +280,7 @@
         <label class="tsel" title="Lọc theo ${esc(dateF.l.toLowerCase())}">${Icon('calendar')}<select id="tsel" aria-label="Khoảng thời gian">
           ${RANGES.map(([v, l]) => `<option value="${v}" ${v === st.rg.p ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
         <span class="trng" id="trng" ${st.rg.p === 'custom' ? '' : 'hidden'}>
-          <input type="date" id="tfrom" value="${esc(st.rg.from)}" aria-label="Từ ngày"><span>→</span><input type="date" id="tto" value="${esc(st.rg.to)}" aria-label="Đến ngày"></span>
+          ${V.dateInput('id="tfrom"', st.rg.from, { label: 'Từ ngày' })}<span>→</span>${V.dateInput('id="tto"', st.rg.to, { label: 'Đến ngày' })}</span>
       </div>` : ''}
       <div class="chips-row" id="chips"></div><div class="lsum" id="lsum" hidden></div><div id="lst"></div>
       ${canAdd ? `<a class="fab" href="${addHref}" title="Thêm mới" style="--gc:${it.color || 'var(--pri)'}">${Icon('plus')}</a>` : ''}`;
@@ -343,11 +343,13 @@
     const ss = App.main.querySelector('.lsort');
     if (ss) ss.onchange = () => { st.s = ss.value; draw(); };
     if (dateF) {
+      V.dates(App.main);
       const sel = document.getElementById('tsel'), rng = document.getElementById('trng'), fr = document.getElementById('tfrom'), to = document.getElementById('tto');
       sel.onchange = () => {
         st.rg.p = sel.value;
         if (sel.value === 'custom' && !st.rg.from && !st.rg.to) {   // gợi ý sẵn: đầu tháng này → hôm nay
           const d = new Date(); st.rg.from = fr.value = U.iso(new Date(d.getFullYear(), d.getMonth(), 1)); st.rg.to = to.value = U.today();
+          fr._sync(); to._sync();
         }
         rng.hidden = sel.value !== 'custom';
         drawChips(); draw();
@@ -595,6 +597,57 @@
   // ---------------- FORM THÊM / SỬA ----------------
   const SEG_MAX = 6;   // danh sách chọn có ≤ 6 lựa chọn → hiện thành nút bấm thay vì danh sách thả xuống
 
+  // Ô ngày luôn hiện dd/mm/yyyy (ô ngày gốc của trình duyệt hiện theo ngôn ngữ máy, vd mm/dd/yyyy trên máy tiếng Anh).
+  // Ô gốc (ẩn, nằm dưới biểu tượng lịch) vẫn giữ giá trị yyyy-mm-dd để lưu và để mở bảng chọn ngày.
+  V.dateInput = (attrs, iso, o = {}) => {
+    const dt = !!o.time;
+    return `<span class="dinp ${dt ? 'dt' : ''}"><input type="text" class="dtxt" inputmode="numeric" autocomplete="off" maxlength="${dt ? 16 : 10}"
+        placeholder="${dt ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy'}" value="${esc(iso ? (dt ? U.fmtDateTime(iso) : U.fmtDate(iso)) : '')}" ${o.disabled ? 'disabled' : ''} ${o.label ? `aria-label="${esc(o.label)}"` : ''}>
+      <span class="dbtn" aria-hidden="true">${Icon('calendar')}</span>
+      <input type="${dt ? 'datetime-local' : 'date'}" class="dnat" ${attrs} value="${esc(iso || '')}" tabindex="-1" title="Chọn trên lịch" ${o.disabled ? 'disabled' : ''}></span>`;
+  };
+  V.dates = root => root.querySelectorAll('.dinp').forEach(box => {
+    if (box._bound) return; box._bound = true;
+    const txt = box.querySelector('.dtxt'), nat = box.querySelector('.dnat'), dt = box.classList.contains('dt');
+    const show = () => { txt.value = nat.value ? (dt ? U.fmtDateTime(nat.value) : U.fmtDate(nat.value)) : ''; txt.disabled = nat.disabled; box.classList.remove('bad'); };
+    nat._sync = show;   // gọi sau khi code khác đổi nat.value / nat.disabled (nút "Hôm nay", "Không thời hạn"…)
+    nat.addEventListener('change', show);
+    nat.addEventListener('click', () => { try { nat.showPicker(); } catch (e) { /* trình duyệt tự mở */ } });
+    // Đọc chữ dd/mm/yyyy [hh:mm]; final = rời ô / Enter → báo lỗi nếu sai, chuẩn hoá 1/2/2026 → 01/02/2026
+    const parse = final => {
+      const v = txt.value.trim();
+      if (!v) { box.classList.remove('bad'); if (nat.value) { nat.value = ''; if (final) nat.dispatchEvent(new Event('change', { bubbles: true })); } return; }
+      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+      const d = m && new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0));
+      if (!(d && d.getDate() === +m[1] && d.getMonth() === m[2] - 1 && (m[4] == null || (+m[4] < 24 && +m[5] < 60)))) {
+        if (final) box.classList.add('bad');
+        return;
+      }
+      box.classList.remove('bad');
+      const iso = dt ? U.toLocalInput(d) : U.iso(d);
+      if (nat.value !== iso) nat.value = iso;
+      if (final) nat.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    // Gõ liền chữ số (11102026) → tự chèn "/", " ", ":"; tự gõ dấu "/" kiểu 5/3/2026 thì để nguyên, rời ô mới chuẩn hoá
+    const auto = /^\d+$|^\d{2}\/\d{0,3}$|^\d{2}\/\d{2}\/\d{0,5}$|^\d{2}\/\d{2}\/\d{4} \d{0,3}$|^\d{2}\/\d{2}\/\d{4} \d{2}:\d{0,3}$/;
+    txt.addEventListener('input', e => {
+      const v = txt.value;
+      if (!(e.inputType || '').startsWith('delete') && auto.test(v)) {
+        const d = v.replace(/\D/g, '').slice(0, dt ? 12 : 8);
+        let s = d.slice(0, 2);
+        if (d.length > 2) s += '/' + d.slice(2, 4);
+        if (d.length > 4) s += '/' + d.slice(4, 8);
+        if (dt && d.length > 8) s += ' ' + d.slice(8, 10);
+        if (dt && d.length > 10) s += ':' + d.slice(10, 12);
+        if (v.endsWith('/') && (d.length === 2 || d.length === 4)) s += '/';   // giữ dấu "/" vừa gõ
+        txt.value = s;
+      }
+      parse(false);
+    });
+    txt.addEventListener('blur', () => parse(true));
+    txt.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); parse(true); } });
+  });
+
   // Lựa chọn của ô "chọn hoặc gõ thêm" (giống AppSheet "cho phép giá trị khác"): các giá trị khai báo trong schema
   // + mọi giá trị đã từng nhập trong dữ liệu (hay dùng xếp trước); trùng chữ hoa/thường hoặc dấu chỉ giữ 1
   V.enumOpts = (t, f) => {
@@ -663,20 +716,20 @@
         break;
       case 'number': input = `<input ${nm} type="number" step="any" inputmode="decimal" value="${v === '' ? '' : esc(U.num(v))}">`; break;
       case 'date':
-        input = `<div class="inl"><input ${nm} type="date" value="${esc(U.isoOf(v))}"><button type="button" class="qd" data-today="${esc(f.n)}">Hôm nay</button></div>`;
+        input = `<div class="inl">${V.dateInput(nm, U.isoOf(v))}<button type="button" class="qd" data-today="${esc(f.n)}">Hôm nay</button></div>`;
         break;
       case 'datetime':
-        input = `<div class="inl"><input ${nm} type="datetime-local" value="${esc(U.toLocalInput(v))}"><button type="button" class="qd" data-now="${esc(f.n)}">Bây giờ</button></div>`;
+        input = `<div class="inl">${V.dateInput(nm, U.toLocalInput(v), { time: true })}<button type="button" class="qd" data-now="${esc(f.n)}">Bây giờ</button></div>`;
         break;
       case 'expiry': {
         const no = v !== '' && !U.parseDate(v);
-        input = `<div class="inl wrap"><input ${nm} type="date" value="${esc(U.isoOf(v))}" ${no ? 'disabled' : ''}>
+        input = `<div class="inl wrap">${V.dateInput(nm, U.isoOf(v), { disabled: no })}
           <label class="chk qd"><input type="checkbox" data-noexp="${esc(f.n)}" ${no ? 'checked' : ''}> Không thời hạn</label></div>`;
         break;
       }
       case 'enum':
         if (f.other) input = `<div class="cbx" data-opts="${esc(JSON.stringify(V.enumOpts(t, f)))}">
-          <input ${nm} value="${esc(v)}" placeholder="Chọn trong danh sách hoặc gõ để thêm mới" autocomplete="off" role="combobox" aria-expanded="false" ${f.req ? 'required' : ''}>
+          <input ${nm} value="${esc(v)}" placeholder="Chọn hoặc gõ để thêm mới" autocomplete="off" role="combobox" aria-expanded="false" ${f.req ? 'required' : ''}>
           <button type="button" class="cbx-tg" tabindex="-1" aria-label="Mở danh sách">${Icon('chevron')}</button><div class="cbx-pop" role="listbox" hidden></div></div>`;
         else if (f.opts.length <= SEG_MAX) input = seg([...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => ({ v: o, l: o })), v);
         else input = `<select ${nm}><option value=""></option>${[...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
@@ -744,6 +797,7 @@
     const form = App.main.querySelector('form');
     V.hydrate(form);
     V.combo(form);
+    V.dates(form);
     const q = sel => form.querySelector(sel);
     const byName = n => q(`[name="${CSS.escape(n)}"]`);
     let dirty = false;
@@ -768,10 +822,10 @@
     form.querySelectorAll('[data-money]').forEach(inp => {
       inp.addEventListener('input', () => { const d = inp.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''); inp.value = moneyFmt(d); });
     });
-    form.querySelectorAll('[data-today]').forEach(b => b.onclick = () => { byName(b.dataset.today).value = U.today(); dirty = true; });
-    form.querySelectorAll('[data-now]').forEach(b => b.onclick = () => { byName(b.dataset.now).value = U.toLocalInput(new Date()); dirty = true; });
+    form.querySelectorAll('[data-today]').forEach(b => b.onclick = () => { const d = byName(b.dataset.today); d.value = U.today(); d._sync && d._sync(); dirty = true; });
+    form.querySelectorAll('[data-now]').forEach(b => b.onclick = () => { const d = byName(b.dataset.now); d.value = U.toLocalInput(new Date()); d._sync && d._sync(); dirty = true; });
     form.querySelectorAll('[data-noexp]').forEach(c => {
-      c.onchange = () => { const d = byName(c.dataset.noexp); d.disabled = c.checked; if (c.checked) d.value = ''; };
+      c.onchange = () => { const d = byName(c.dataset.noexp); d.disabled = c.checked; if (c.checked) d.value = ''; d._sync && d._sync(); };
     });
     form.querySelectorAll('[data-eye]').forEach(b => b.onclick = async () => {
       const inp = byName(b.dataset.eye);
@@ -800,10 +854,11 @@
     form.onsubmit = async e => {
       e.preventDefault();
       form.querySelectorAll('.fld.err').forEach(b => b.classList.remove('err'));
-      const out = {}, missing = [], uploads = [];
+      const out = {}, missing = [], uploads = [], badDate = [];
       for (const f of fields) {
         const el = byName(f.n);
         let val;
+        if (el && el.closest('.dinp.bad')) { badDate.push(f); continue; }   // chữ ngày gõ chưa đúng dd/mm/yyyy
         if (f.t === 'image' || f.t === 'file') {
           const up = q(`[data-up="${CSS.escape(f.n)}"]`), clr = q(`[data-clear="${CSS.escape(f.n)}"]`);
           if (up.files[0]) { uploads.push([f, up.files[0]]); val = r[f.n] || 'x'; }
@@ -820,6 +875,11 @@
         else val = el.value.trim();
         if (f.req && (val === '' || val == null)) missing.push(f);
         out[f.n] = val;
+      }
+      if (badDate.length) {
+        badDate.forEach(f => markErr(f, 'Ngày chưa đúng — nhập theo dd/mm/yyyy' + (f.t === 'datetime' ? ' hh:mm' : '')));
+        q('.fld.err')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return U.toast('Có ngày nhập chưa đúng dạng dd/mm/yyyy', 'err');
       }
       if (missing.length) {
         missing.forEach(f => markErr(f, 'Bắt buộc nhập'));

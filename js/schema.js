@@ -218,7 +218,7 @@
       { n: 'NgayGD', l: 'Ngày giao dịch', t: 'date', init: 'today' },
       { n: 'DanhMuc', l: 'Danh mục', t: 'enum', other: true, opts: ['Lương', 'Ăn uống', 'Nhà Ở', 'Di chuyển', 'Y tế'] },
       { n: 'MoTa', l: 'Mô tả', t: 'text' },
-      { n: 'ThangNam', l: 'Tháng', t: 'text', v: r => U.month(r.NgayGD) }
+      { n: 'ThangNam', l: 'Tháng', t: 'text', v: r => { const m = U.month(r.NgayGD); return m ? m.slice(5) + '/' + m.slice(0, 4) : ''; } }   // mm/yyyy
     ],
     list: { group: 'Loai', sort: 'NgayGD', desc: true, cols: ['SoTien', 'NgayGD', 'TaiKhoanID'], sum: 'SoTien', sumSplit: ['Loai', 'Thu', 'Chi'], countUnit: 'giao dịch', range: true },
     detail: { stats: ['SoTien', 'NgayGD', 'Loai'], hide: ['ThangNam'] },
