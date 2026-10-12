@@ -268,34 +268,69 @@
     const canAdd = App.user.admin || (it.album ? Perm.rank(quyen()[it.perm]) === 2 : tableLv(t) === 2);
     const addHref = `#/f/${t}/new` + (it.album ? '?Album=' + enc(it.album) : '');
     const chipField = L.type === 'gallery' || L.type === 'calendar' ? null : (L.filter || L.group);
+    const dateF = L.range && L.sort && DB.field(t, L.sort);
+    st.rg = st.rg || { p: 'all', from: '', to: '' };
 
     App.main.innerHTML = `<div class="lbar">
         <label class="lsearch">${Icon('search')}<input type="search" placeholder="Tìm trong ${esc(it.label.toLowerCase())}…" value="${esc(st.q)}"></label>
         ${sorts.length > 1 ? `<select class="lsort" title="Sắp xếp">${sorts.map(s => `<option value="${s.id}" ${s.id === st.s ? 'selected' : ''}>${esc(s.l)}</option>`).join('')}</select>` : ''}
         ${canAdd ? `<a class="btn ladd" href="${addHref}">${Icon('plus')}Thêm</a>` : ''}
       </div>
-      <div class="chips-row" id="chips"></div><div id="lst"></div>
+      ${dateF ? `<div class="lfil">
+        <label class="tsel" title="Lọc theo ${esc(dateF.l.toLowerCase())}">${Icon('calendar')}<select id="tsel" aria-label="Khoảng thời gian">
+          ${RANGES.map(([v, l]) => `<option value="${v}" ${v === st.rg.p ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        <span class="trng" id="trng" ${st.rg.p === 'custom' ? '' : 'hidden'}>
+          <input type="date" id="tfrom" value="${esc(st.rg.from)}" aria-label="Từ ngày"><span>→</span><input type="date" id="tto" value="${esc(st.rg.to)}" aria-label="Đến ngày"></span>
+      </div>` : ''}
+      <div class="chips-row" id="chips"></div><div class="lsum" id="lsum" hidden></div><div id="lst"></div>
       ${canAdd ? `<a class="fab" href="${addHref}" title="Thêm mới" style="--gc:${it.color || 'var(--pri)'}">${Icon('plus')}</a>` : ''}`;
     App.main.classList.toggle('has-fab', canAdd);
 
-    const base = () => V.filterRows(it, '');
+    // Lọc thời gian: dòng không có ngày bị loại khi đang chọn 1 khoảng
+    const inRange = r => {
+      if (!dateF) return true;
+      const [a, b] = V.rangeOf(st.rg); if (!a && !b) return true;
+      const v = U.isoOf(DB.val(t, r, L.sort)); if (!v) return false;
+      return (!a || v >= a) && (!b || v <= b);
+    };
+    const base = () => V.filterRows(it, '').filter(inRange);
     const drawChips = () => {
       const box = document.getElementById('chips');
       if (!chipField) { box.hidden = true; return; }
-      const all = base(), counts = new Map();
-      all.forEach(r => { const g = groupValue(t, r, chipField); counts.set(g, (counts.get(g) || 0) + 1); });
-      if (counts.size < 2) { box.hidden = true; st.f = null; return; }
-      const keys = V.orderGroups(t, chipField, [...counts.keys()]);
-      box.innerHTML = [`<button class="chip2 ${st.f == null ? 'on' : ''}" data-f="">Tất cả <b>${all.length}</b></button>`,
-        ...keys.map(k => `<button class="chip2 ${st.f === k ? 'on' : ''}" data-f="${esc(k)}">${esc(k || '(trống)')} <b>${counts.get(k)}</b></button>`)].join('');
+      const all = base(), groups = new Map();
+      all.forEach(r => { const g = groupValue(t, r, chipField); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
+      if (groups.size < 2 && st.f == null) { box.hidden = true; return; }
+      box.hidden = false;
+      const n = rs => esc(L.sum ? V.fmtSum(t, V.sumOf(t, rs), true) : String(rs.length));   // có cột cộng → nút lọc hiện tổng (vd tổng kiện)
+      const keys = V.orderGroups(t, chipField, [...groups.keys()]);
+      if (st.f != null && !groups.has(st.f)) keys.push(st.f);
+      box.innerHTML = [`<button class="chip2 ${st.f == null ? 'on' : ''}" data-f="">Tất cả <b>${L.sumSplit ? all.length : n(all)}</b></button>`,
+        ...keys.map(k => `<button class="chip2 ${st.f === k ? 'on' : ''}" data-f="${esc(k)}">${esc(k || '(trống)')} <b>${n(groups.get(k) || [])}</b></button>`)].join('');
       box.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
         st.f = b.dataset.f === '' ? null : b.dataset.f;
         drawChips(); draw();
       });
     };
+    // Dòng tổng: số dòng + tổng cột cộng + khoảng thời gian đang lọc
+    const drawSum = rows => {
+      const box = document.getElementById('lsum'), [a, b] = V.rangeOf(st.rg), on = a || b;
+      box.hidden = !(L.sum || on);
+      if (box.hidden) return;
+      const span = on ? (a && b ? `${U.fmtDate(a)} → ${U.fmtDate(b)}` : a ? 'từ ' + U.fmtDate(a) : 'đến ' + U.fmtDate(b)) : 'mọi thời gian';
+      let tot = '';
+      if (L.sumSplit && st.f != null && chipField === L.sumSplit[0]) tot = ` · tổng <b>${esc(V.fmtSum(t, V.sumOf(t, rows)))}</b>`;   // đang lọc riêng Thu hoặc Chi
+      else if (L.sumSplit) {   // vd Thu chi: cộng thu, trừ chi — không cộng chung 2 loại
+        const [col, plus, minus] = L.sumSplit, by = v => V.sumOf(t, rows.filter(r => String(r[col]) === v)), p = by(plus), m = by(minus);
+        tot = ` · ${esc(plus.toLowerCase())} <b>${esc(V.fmtSum(t, p))}</b> · ${esc(minus.toLowerCase())} <b>${esc(V.fmtSum(t, m))}</b>`
+          + (st.f == null ? ` · chênh lệch <b class="${p - m < 0 ? 'neg' : 'pos'}">${p - m < 0 ? '−' : ''}${esc(V.fmtSum(t, Math.abs(p - m)))}</b>` : '');
+      } else if (L.sum) tot = ` · tổng <b>${esc(V.fmtSum(t, V.sumOf(t, rows)))}</b>`;
+      box.innerHTML = `${Icon('chart', 'sm')}<span><b>${rows.length}</b> ${esc(L.countUnit || 'mục')}${tot}
+        <span class="muted">· ${esc(span)}${st.f != null ? ' · ' + esc(st.f || '(trống)') : ''}${st.q ? ' · khớp "' + esc(st.q) + '"' : ''}</span></span>`;
+    };
     const draw = () => {
-      let rows = V.filterRows(it, st.q);
+      let rows = V.filterRows(it, st.q).filter(inRange);
       if (chipField && st.f != null) rows = rows.filter(r => groupValue(t, r, chipField) === st.f);
+      drawSum(rows);
       const flat = chipField && st.f != null && chipField === L.group;
       document.getElementById('lst').innerHTML = rows.length
         ? V.renderRows(t, rows, { flat, sortBy: st.s, item: it })
@@ -307,7 +342,44 @@
     App.main.querySelector('.lsearch input').oninput = e => { st.q = e.target.value; draw(); };
     const ss = App.main.querySelector('.lsort');
     if (ss) ss.onchange = () => { st.s = ss.value; draw(); };
+    if (dateF) {
+      const sel = document.getElementById('tsel'), rng = document.getElementById('trng'), fr = document.getElementById('tfrom'), to = document.getElementById('tto');
+      sel.onchange = () => {
+        st.rg.p = sel.value;
+        if (sel.value === 'custom' && !st.rg.from && !st.rg.to) {   // gợi ý sẵn: đầu tháng này → hôm nay
+          const d = new Date(); st.rg.from = fr.value = U.iso(new Date(d.getFullYear(), d.getMonth(), 1)); st.rg.to = to.value = U.today();
+        }
+        rng.hidden = sel.value !== 'custom';
+        drawChips(); draw();
+      };
+      fr.onchange = to.onchange = () => { st.rg.from = fr.value; st.rg.to = to.value; drawChips(); draw(); };
+    }
     drawChips(); draw();
+  };
+
+  // Tổng cột số (list.sum) của các dòng; tiền → "1.200.000 ₫", số → "308 kiện"
+  V.sumOf = (t, rows) => { const n = (TT()[t].list || {}).sum; return n ? rows.reduce((a, r) => a + U.num(DB.val(t, r, n)), 0) : rows.length; };
+  V.fmtSum = (t, v, short) => {
+    const L = TT()[t].list || {}, f = L.sum && DB.field(t, L.sum);
+    if (f && f.t === 'price') return U.money(v);
+    return U.int(v) + (L.unit && !short ? ' ' + L.unit : '');
+  };
+
+  // Bộ lọc thời gian (list.range) theo cột ngày dùng để sắp xếp
+  const RANGES = [['all', 'Mọi thời gian'], ['m0', 'Tháng này'], ['m1', 'Tháng trước'], ['q0', 'Quý này'], ['m3', '3 tháng gần đây'],
+    ['y0', 'Năm nay'], ['y1', 'Năm trước'], ['custom', 'Chọn từ ngày… đến ngày…']];
+  V.rangeOf = rg => {   // → [từ, đến] dạng yyyy-mm-dd ('' = không giới hạn)
+    const d = new Date(), y = d.getFullYear(), m = d.getMonth(), iso = U.iso;
+    switch (rg && rg.p) {
+      case 'm0': return [iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))];
+      case 'm1': return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))];
+      case 'q0': { const q = Math.floor(m / 3) * 3; return [iso(new Date(y, q, 1)), iso(new Date(y, q + 3, 0))]; }
+      case 'm3': return [iso(new Date(y, m - 2, 1)), iso(new Date(y, m + 1, 0))];
+      case 'y0': return [y + '-01-01', y + '-12-31'];
+      case 'y1': return [(y - 1) + '-01-01', (y - 1) + '-12-31'];
+      case 'custom': return [rg.from || '', rg.to || ''];
+      default: return ['', ''];
+    }
   };
 
   // Các kiểu sắp xếp cho 1 bảng: theo ngày (mới/cũ) nếu có, và theo tên
@@ -427,7 +499,10 @@
       const groups = new Map();
       rows.forEach(r => { const g = groupValue(t, r, L.group); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
       const keys = V.orderGroups(t, L.group, [...groups.keys()]);
-      return keys.map(g => `<details class="lgrp" open><summary>${esc(g || '(trống)')} <span class="cnt">${groups.get(g).length}</span></summary>
+      // Có cột cộng (vd số kiện): tiêu đề nhóm hiện tổng, kèm số dòng
+      const head = rs => L.sum ? `<span class="cnt">${esc(V.fmtSum(t, V.sumOf(t, rs)))}</span><span class="gsub">${rs.length} ${esc(L.countUnit || 'mục')}</span>`
+        : `<span class="cnt">${rs.length}</span>`;
+      return keys.map(g => `<details class="lgrp" open><summary>${esc(g || '(trống)')} ${head(groups.get(g))}</summary>
         ${groups.get(g).map(row).join('')}</details>`).join('');
     }
     return `<div class="rows">${rows.map(row).join('')}</div>`;
