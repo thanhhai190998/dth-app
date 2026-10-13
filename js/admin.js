@@ -166,6 +166,14 @@
             : '⚠️ Chưa có phiên dài hạn — sẽ phải đăng nhập lại sau khoảng 1 giờ') + ' · bấm để huỷ đăng nhập trên tất cả điện thoại, máy tính (vd khi mất máy)',
           '<button class="btn sm ghost" data-act="logoutall">Đăng xuất</button>')));
 
+    const la = Lock.after();
+    h += group('Khoá ứng dụng',
+      srow('lock', 'var(--g6)', 'Mã PIN máy này', Lock.hasPin() ? 'Đã đặt · cần nhập khi mở app' : '⚠️ Chưa đặt — ai cầm máy cũng mở được app',
+        Lock.hasPin() ? '<button class="btn sm ghost" data-act="chgpin">Đổi</button>' : '<button class="btn sm" data-act="setpin">Đặt</button>')
+      + srow('clock', 'var(--g6)', 'Tự khoá khi rời app hoặc không thao tác', 'Áp dụng trên máy này',
+        `<div class="seg mini" data-act="lockafter">${[[0, 'Ngay'], [1, '1 phút'], [5, '5 phút'], [15, '15 phút']].map(([v, l]) => `<button type="button" class="segb ${v === la ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`)
+      + `<div data-biorow hidden>${srow('key', 'var(--g6)', 'Mở khoá bằng vân tay / khuôn mặt', 'Windows Hello, vân tay, Face ID của máy này — mã PIN vẫn dùng được',
+        `<input type="checkbox" class="sw" data-act="bio" ${Lock.bioOn() ? 'checked' : ''} aria-label="Mở khoá bằng vân tay / khuôn mặt">`)}</div>`);
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
       `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`));
 
@@ -193,6 +201,22 @@
 
     const on = (act, fn) => { const el = App.main.querySelector(`[data-act="${act}"]`); if (el) el[el.tagName === 'SELECT' ? 'onchange' : 'onclick'] = fn; };
     on('signout', () => App.signOut());
+    on('setpin', () => { Lock.setup(); watchPin(); });
+    on('chgpin', () => Lock.changePin());
+    // Đặt PIN xong (màn hình đóng) → vẽ lại Cài đặt để cập nhật trạng thái
+    const watchPin = () => { const t = setInterval(() => { if (!document.body.classList.contains('locked')) { clearInterval(t); if (location.hash === '#/settings') A.settings(); App.lockIcon(); } }, 400); };
+    const lab = App.main.querySelector('[data-act="lockafter"]');
+    if (lab) lab.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; Lock.setAfter(+b.dataset.v); lab.querySelectorAll('.segb').forEach(x => x.classList.toggle('on', x === b)); U.toast('Đã lưu', 'ok'); };
+    Lock.bioAvailable().then(ok => {
+      const row = App.main.querySelector('[data-biorow]'); if (!row || !ok || !Lock.hasPin()) return;
+      row.hidden = false;
+      const sw = row.querySelector('[data-act="bio"]');
+      sw.onchange = async () => {
+        if (!sw.checked) { Lock.bioDisable(); return U.toast('Đã tắt mở khoá bằng vân tay / khuôn mặt'); }
+        try { await Lock.bioEnable(); U.toast('Đã bật — lần khoá sau bấm biểu tượng 🔑 trên bàn phím PIN', 'ok'); }
+        catch (e) { sw.checked = false; U.toast('Chưa bật được: ' + e.message, 'err'); }
+      };
+    });
     on('logoutall', async () => {
       if (!await U.confirm('Đăng xuất tài khoản này trên TẤT CẢ điện thoại, máy tính đang dùng app (kể cả máy này)?')) return;
       try { const n = await API.logoutAll(); U.toast('Đã huỷ ' + n + ' phiên đăng nhập', 'ok'); } catch (e) { return U.toast(e.message, 'err'); }

@@ -112,11 +112,14 @@
       if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
     },
     notFound() { App.head('Không tìm thấy', { back: true }); App.main.innerHTML = '<div class="empty">Không có trang này hoặc bạn không có quyền truy cập.</div>'; },
+    // Nút 🔒: có mã PIN → khoá app ngay (kèm khoá dữ liệu mã hoá); chưa có PIN → bật/tắt khoá dữ liệu mã hoá như trước
     lockIcon() {
-      const b = document.getElementById('lock');
-      b.hidden = !Vault.isSet();
-      b.textContent = Vault.isOpen() ? '🔓' : '🔒';
-      b.title = Vault.isOpen() ? 'Đang mở khoá dữ liệu bảo mật — bấm để khoá' : 'Dữ liệu bảo mật đang khoá — bấm để mở';
+      const b = document.getElementById('lock'), pin = window.Lock && Lock.hasPin();
+      b.hidden = !pin && !Vault.isSet();
+      b.innerHTML = Icon('lock');
+      b.classList.toggle('vopen', !pin && Vault.isOpen());
+      b.title = pin ? 'Khoá app ngay (cần mã PIN để mở lại)'
+        : Vault.isOpen() ? 'Đang mở khoá dữ liệu bảo mật — bấm để khoá' : 'Dữ liệu bảo mật đang khoá — bấm để mở';
     }
   });
 
@@ -198,6 +201,7 @@
   const whoAmI = () => (C.mode === 'live' ? (window.Auth && Auth.hint) || '' : API.demo.current()).toLowerCase();
   function setVault(v) { if (v) { Vault.cfg = typeof v === 'string' ? JSON.parse(v) : v; lsSet(VAULT_KEY, Vault.cfg); App.lockIcon(); } }
   function failStart(e) {
+    try { Lock.unlock(); } catch (er) { /* bỏ qua */ }
     App.head(C.appName, { home: true });
     App.main.innerHTML = `<div class="empty err">⚠️ ${U.esc(e.message)}<br><br>
       ${C.mode === 'demo' ? '<button class="btn" onclick="localStorage.removeItem(\'pwa-demo-user\');location.reload()">Quay lại tài khoản quản trị viên (demo)</button>'
@@ -229,7 +233,10 @@
     App.footer();
     if (C.mode === 'demo') document.body.classList.add('is-demo');
     document.getElementById('back').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
-    document.getElementById('lock').onclick = async () => { if (Vault.isOpen()) Vault.lock(); else await Vault.ensureOpen(); };
+    document.getElementById('lock').onclick = async () => {
+      if (Lock.hasPin()) return Lock.lock();
+      if (Vault.isOpen()) Vault.lock(); else await Vault.ensureOpen();
+    };
     document.getElementById('menu').onclick = () => { location.hash = '#/settings'; };
     const ub = document.getElementById('update'); ub.innerHTML = Icon('refresh'); ub.onclick = () => App.refresh();
     Vault.onChange = () => App.lockIcon();
@@ -244,6 +251,7 @@
       App.loading();
       try { App.user = await API.me(); lsSet(ME_KEY, App.user); } catch (e) { return failStart(e); }
     }
+    Lock.boot();   // khoá bằng mã PIN (hoặc bắt đặt PIN lần đầu) trước khi hiện dữ liệu — trang vẫn tải ngầm phía sau
     API.getConfig('vault').then(setVault).catch(() => {});
     document.getElementById('avatar').textContent = ((window.Auth && Auth.name) || App.user.name || App.user.email || '?').trim().charAt(0).toUpperCase();
     await DB.load('ALBUM').catch(() => {});   // menu cần danh sách album
