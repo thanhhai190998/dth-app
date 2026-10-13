@@ -40,6 +40,19 @@
   U.int = v => new Intl.NumberFormat('vi-VN').format(U.num(v));
 
   U.norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  // Tìm kiếm dễ dãi: không dấu, không phân biệt hoa/thường, bỏ qua dấu cách / gạch nối / chấm ("0441" khớp "T-0441",
+  // "22" khớp "T22", "kc112" khớp "LPF-KC-112-007"); gõ nhiều từ thì mỗi từ phải có mặt, thứ tự nào cũng được.
+  // dates = chữ ngày tháng của dòng (dd/mm/yyyy): chỉ từ có "/" hoặc ":" mới so với ngày — gõ số trần như "202"
+  // không bị khớp với năm "2026" của mọi dòng
+  const compact = s => s.replace(/[^a-z0-9]/g, '');
+  U.match = (hay, q, dates) => {
+    const words = U.norm(q).trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const h = U.norm(hay), hc = compact(h), hd = dates ? h + ' ' + U.norm(dates) : h;
+    return words.every(w => /[/:]/.test(w) ? hd.includes(w) : (h.includes(w) || (compact(w) !== '' && hc.includes(compact(w)))));
+  };
+  // Giá trị trông như ngày (yyyy-mm-dd…, dd/mm/yyyy, mm/yyyy) → dùng cho phần "dates" của U.match
+  U.isDateLike = v => /^\d{4}-\d{2}-\d{2}|^\d{1,2}\/\d{1,2}\/\d{4}|^\d{1,2}\/\d{4}$/.test(String(v ?? '').trim());
 
   U.toast = (msg, kind) => {
     const t = document.createElement('div');

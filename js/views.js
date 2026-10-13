@@ -225,7 +225,7 @@
     const hq = document.getElementById('hq');
     hq.oninput = () => {
       const q = U.norm(hq.value.trim());
-      const res = q ? all.filter(it => U.norm(it.label + ' ' + (it.desc || '')).includes(q)) : [];
+      const res = q ? all.filter(it => U.match(it.label + ' ' + (it.desc || ''), hq.value)) : [];
       ['hfav', 'hall'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = !!q; });
       App.main.querySelectorAll('.kpi-row, .quick').forEach(el => { el.hidden = !!q; });
       const rs = document.getElementById('hres');
@@ -411,10 +411,16 @@
     let rows = DB.rows(t);
     if (it.album) rows = rows.filter(r => r.Album === it.album);
     if (query) {
-      const nq = U.norm(query);
       const fs = def.fields.filter(f => !f.enc && f.t !== 'image' && f.t !== 'file');
-      rows = rows.filter(r => U.norm([DB.title(t, r), DB.sub(t, r), ...fs.map(f =>
-        f.t === 'ref' ? DB.title(f.ref, DB.get(f.ref, r[f.n])) : DB.val(t, r, f.n))].join(' ')).includes(nq));
+      rows = rows.filter(r => {
+        const text = [DB.title(t, r), DB.sub(t, r)], dates = [];
+        fs.forEach(f => {
+          const v = f.t === 'ref' ? DB.title(f.ref, DB.get(f.ref, r[f.n])) : DB.val(t, r, f.n);
+          if (/^(date|datetime|expiry)$/.test(f.t) || U.isDateLike(v)) dates.push(f.t === 'datetime' ? U.fmtDateTime(v) : U.fmtDate(v));   // ngày → dd/mm/yyyy, tách riêng
+          else text.push(v);
+        });
+        return U.match(text.join(' '), query, dates.join(' '));
+      });
     }
     return rows;
   };
@@ -660,13 +666,70 @@
     return out;
   };
 
+  // Ô chọn trong danh sách có sẵn, gõ để tìm (thay <select>: ô chọn gốc chỉ nhảy theo chữ cái đầu — gõ "22" không ra "T22").
+  // Chỉ nhận giá trị có trong danh sách; opts = [{ v: giá trị lưu, l: chữ hiện, s: dòng phụ }]
+  V.pickInput = (nm, v, opts) => {
+    const cur = opts.find(o => String(o.v) === String(v));
+    return `<div class="cbx pick" data-opts="${esc(JSON.stringify(opts))}">
+      <input type="text" class="ptxt" value="${esc(cur ? cur.l : '')}" placeholder="Bấm để chọn hoặc gõ để tìm" autocomplete="off" role="combobox" aria-expanded="false">
+      <input type="hidden" ${nm} value="${esc(cur ? cur.v : '')}">
+      <button type="button" class="cbx-tg" tabindex="-1" aria-label="Mở danh sách">${Icon('chevron')}</button><div class="cbx-pop" role="listbox" hidden></div></div>`;
+  };
+  V.pickers = root => root.querySelectorAll('.cbx.pick').forEach(box => {
+    const txt = box.querySelector('.ptxt'), hid = box.querySelector('input[type=hidden]'), pop = box.querySelector('.cbx-pop');
+    const opts = JSON.parse(box.dataset.opts || '[]');
+    let act = -1, items = [], all = true;
+    const label = () => { const o = opts.find(x => String(x.v) === hid.value); return o ? o.l : ''; };
+    const draw = () => {
+      items = all || !txt.value.trim() ? opts : opts.filter(o => U.match(o.l + ' ' + (o.s || '') + ' ' + o.v, txt.value));
+      pop.innerHTML = items.length ? items.map((o, i) => `<button type="button" class="cbx-o ${i === act ? 'on' : ''} ${String(o.v) === hid.value ? 'sel' : ''}" data-i="${i}" role="option">
+          <span>${esc(o.l)}${o.s ? `<small>${esc(o.s)}</small>` : ''}</span>${String(o.v) === hid.value ? Icon('check', 'sm') : ''}</button>`).join('')
+        : '<div class="cbx-empty">Không có lựa chọn nào khớp</div>';
+    };
+    const open = showAll => {
+      all = showAll; act = -1; draw();
+      if (pop.hidden) { pop.hidden = false; box.classList.add('open'); txt.setAttribute('aria-expanded', 'true'); requestAnimationFrame(() => pop.scrollIntoView({ block: 'nearest' })); }
+    };
+    const close = () => { pop.hidden = true; box.classList.remove('open'); txt.setAttribute('aria-expanded', 'false'); };
+    const set = o => {
+      const v = o ? String(o.v) : '';
+      txt.value = o ? o.l : '';
+      if (hid.value !== v) { hid.value = v; hid.dispatchEvent(new Event('input', { bubbles: true })); hid.dispatchEvent(new Event('change', { bubbles: true })); }
+    };
+    const pick = i => { if (items[i]) set(items[i]); close(); };
+    txt.addEventListener('focus', () => { open(true); txt.select(); });
+    txt.addEventListener('click', () => { if (pop.hidden) open(true); });
+    txt.addEventListener('input', () => open(false));
+    txt.addEventListener('keydown', e => {
+      if (pop.hidden) { if (e.key === 'ArrowDown') { e.preventDefault(); open(true); } return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault(); act = Math.max(0, Math.min(items.length - 1, act + (e.key === 'ArrowDown' ? 1 : -1))); draw();
+        const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') { e.preventDefault(); pick(act >= 0 ? act : 0); }
+      else if (e.key === 'Escape') { e.preventDefault(); txt.value = label(); close(); }
+      else if (e.key === 'Tab') close();
+    });
+    // Rời ô: xoá trống = bỏ chọn; gõ dở mà chỉ khớp đúng 1 lựa chọn thì chọn luôn; còn lại trả về lựa chọn cũ
+    txt.addEventListener('blur', () => setTimeout(() => {
+      close();
+      const q = txt.value.trim();
+      if (!q) return set(null);
+      if (q === label()) return;
+      const m = opts.filter(o => U.match(o.l + ' ' + (o.s || '') + ' ' + o.v, q));
+      if (m.length === 1) set(m[0]); else txt.value = label();
+    }, 150));
+    box.querySelector('.cbx-tg').addEventListener('click', () => { if (pop.hidden) { txt.focus(); open(true); } else close(); });
+    pop.addEventListener('mousedown', e => e.preventDefault());
+    pop.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) pick(+b.dataset.i); });
+  });
+
   // Ô chọn có thể gõ giá trị mới (thay <datalist> — trình duyệt hiện lẫn thành "Saved data", thiếu ô tìm)
-  V.combo = root => root.querySelectorAll('.cbx').forEach(box => {
+  V.combo = root => root.querySelectorAll('.cbx:not(.pick)').forEach(box => {
     const inp = box.querySelector('input'), pop = box.querySelector('.cbx-pop'), opts = JSON.parse(box.dataset.opts || '[]');
     let act = -1, items = [], all = true;
     const draw = () => {
       const q = U.norm(inp.value.trim()), exact = q && opts.some(o => U.norm(o) === q);
-      items = (q && !all ? opts.filter(o => U.norm(o).includes(q)) : opts).map(v => ({ v }));
+      items = (q && !all ? opts.filter(o => U.match(o, inp.value)) : opts).map(v => ({ v }));
       if (q && !exact) items.push({ v: inp.value.trim(), add: true });   // "Thêm mới" ở cuối — tránh lỡ chọn khi đã có giá trị gần đúng
       pop.innerHTML = items.length ? items.map((o, i) => `<button type="button" class="cbx-o ${o.add ? 'add' : ''} ${i === act ? 'on' : ''} ${!o.add && U.norm(o.v) === q ? 'sel' : ''}" data-i="${i}" role="option">
           ${o.add ? `${Icon('plus', 'sm')}<span>Thêm mới: <b>${esc(o.v)}</b></span>` : `<span>${esc(o.v)}</span>${U.norm(o.v) === q ? Icon('check', 'sm') : ''}`}</button>`).join('')
@@ -732,15 +795,16 @@
           <input ${nm} value="${esc(v)}" placeholder="Chọn hoặc gõ để thêm mới" autocomplete="off" role="combobox" aria-expanded="false" ${f.req ? 'required' : ''}>
           <button type="button" class="cbx-tg" tabindex="-1" aria-label="Mở danh sách">${Icon('chevron')}</button><div class="cbx-pop" role="listbox" hidden></div></div>`;
         else if (f.opts.length <= SEG_MAX) input = seg([...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => ({ v: o, l: o })), v);
-        else input = `<select ${nm}><option value=""></option>${[...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => `<option ${o === v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+        else input = V.pickInput(nm, v, [...f.opts, ...(v && !f.opts.includes(v) ? [v] : [])].map(o => ({ v: o, l: o })));
         break;
       case 'ref': {
         const rows = DB.rows(f.ref).slice().sort((a, b) => DB.title(f.ref, a).localeCompare(DB.title(f.ref, b), 'vi', { numeric: true }));
         if (rows.length && rows.length <= SEG_MAX && (!v || DB.get(f.ref, v))) {
           input = seg(rows.map(x => ({ v: String(DB.keyOf(f.ref, x)), l: DB.title(f.ref, x) })), v);
         } else {
-          input = `<select ${nm}><option value=""></option>${rows.map(x => { const k = String(DB.keyOf(f.ref, x)); return `<option value="${esc(k)}" ${k === String(v) ? 'selected' : ''}>${esc(DB.title(f.ref, x))}</option>`; }).join('')}
-            ${v && !DB.get(f.ref, v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : ''}</select>`;
+          const opts = rows.map(x => ({ v: String(DB.keyOf(f.ref, x)), l: DB.title(f.ref, x), s: DB.sub(f.ref, x) }));
+          if (v && !DB.get(f.ref, v)) opts.push({ v: String(v), l: String(v) });
+          input = V.pickInput(nm, v, opts);
         }
         break;
       }
@@ -797,6 +861,7 @@
     const form = App.main.querySelector('form');
     V.hydrate(form);
     V.combo(form);
+    V.pickers(form);
     V.dates(form);
     const q = sel => form.querySelector(sel);
     const byName = n => q(`[name="${CSS.escape(n)}"]`);

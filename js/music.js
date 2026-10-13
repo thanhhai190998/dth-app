@@ -393,7 +393,7 @@
   function paintList() {
     const box = $('muList'); if (!box) return;
     const q = U.norm(($('muQ') || {}).value || '').trim();
-    const all = queue(st.view), rows = q ? all.filter(s => U.norm(s.name).includes(q)) : all;
+    const all = queue(st.view), rows = q ? all.filter(s => U.match(s.name, q)) : all;
     const inPl = st.view !== ALL;
     box.innerHTML = rows.map(s => {
       const on = s.id === st.id, playing = on && audio && !audio.paused;

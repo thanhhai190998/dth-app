@@ -67,7 +67,7 @@
         dr.classList.toggle('searching', !!s);
         dr.querySelectorAll('.dr-g').forEach(g => {
           let n = 0;
-          g.querySelectorAll('.dr-i').forEach(a => { const on = !s || a.dataset.s.includes(s); a.hidden = !on; if (on) n++; });
+          g.querySelectorAll('.dr-i').forEach(a => { const on = !s || U.match(a.dataset.s, s); a.hidden = !on; if (on) n++; });
           g.hidden = !n;
         });
       };

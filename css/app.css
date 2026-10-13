@@ -417,6 +417,7 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
   background: none; color: var(--text); font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; }
 .cbx-o span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cbx-o .ico { flex: none; width: 16px; height: 16px; }
+.cbx-o small { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cbx-o:hover, .cbx-o.on { background: var(--hover); }
 .cbx-o.sel { color: var(--pri); font-weight: 600; }
 .cbx-o.add { color: var(--pri); border-top: 1px dashed var(--line); border-radius: 0 0 8px 8px; margin-top: 2px; }
