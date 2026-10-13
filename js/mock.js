@@ -173,7 +173,7 @@
   function me() {
     loadState();
     const email = currentEmail();
-    if (email === OWNER) return { email, name: 'Chủ app (demo)', admin: true, owner: true, goi: [], quyen: {} };
+    if (email === OWNER) return { email, name: 'Quản trị viên (demo)', admin: true, owner: true, goi: [], quyen: {} };
     const u = state.users.find(x => x.Email === email && x.Kich_hoat);
     if (!u) { const e = new Error('Tài khoản ' + email + ' chưa được cấp quyền dùng app'); e.code = 'NOT_ALLOWED'; throw e; }
     return { email, name: u.Ho_ten, admin: !!u.Admin, owner: false, goi: (u.Goi_thau || '').split(',').map(s => s.trim()).filter(Boolean), quyen: u.Quyen || {} };
@@ -268,7 +268,7 @@
       await wait(); if (!me().admin) throw new Error('Chỉ quản trị viên');
       if (!u.Email) throw new Error('Thiếu email');
       u.Email = u.Email.trim().toLowerCase();
-      if (u.Email === OWNER) throw new Error('Không sửa được tài khoản chủ app');
+      if (u.Email === OWNER) throw new Error('Không sửa được tài khoản quản trị viên chính');
       const i = state.users.findIndex(x => x.Email === u.Email);
       if (i >= 0) state.users[i] = u; else state.users.push(u);
       persist(); return clone(u);
@@ -278,7 +278,7 @@
     async setConfig(k, v) {
       await wait(); const u = me();
       if (!u.admin) throw new Error('Chỉ quản trị viên');
-      if (k === 'vault' && state.config.vault && !u.owner) throw new Error('Chỉ chủ app được thay mật khẩu chủ');
+      if (k === 'vault' && state.config.vault && !u.owner) throw new Error('Chỉ quản trị viên chính được thay mật khẩu chủ');
       state.config[k] = v; persist(); return true;
     },
     async signOut() { /* demo: không làm gì */ },

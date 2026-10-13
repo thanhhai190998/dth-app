@@ -19,10 +19,10 @@
       ${u.Kich_hoat ? (u.Admin ? '<span class="badge info">Quản trị</span>' : '<span class="badge ok">Đang dùng</span>') : '<span class="badge">Đã khoá</span>'}</a>`;
     App.main.innerHTML = `<div class="card uinfo"><span class="gic" style="--gc:var(--g7)">${Icon('shield')}</span>
         <div><b>${users.filter(u => u.Kich_hoat).length} người dùng đang hoạt động</b>
-        <div class="muted small">Chủ app${App.user.owner ? ' (<b>' + esc(App.user.email) + '</b>)' : ''} luôn có toàn quyền và không hiện trong danh sách.</div></div>
+        <div class="muted small">Quản trị viên chính${App.user.owner ? ' (<b>' + esc(App.user.email) + '</b>)' : ''} luôn có toàn quyền và không hiện trong danh sách.</div></div>
         <a class="btn ladd" href="#/admin/u/new">${Icon('plus')}Thêm</a></div>
       ${users.length ? `<div class="rows">${users.map(row).join('')}</div>`
-        : `<div class="lempty"><span class="tic" style="--gc:var(--g7)">${Icon('users')}</span><div>Chưa có người dùng nào ngoài chủ app</div>
+        : `<div class="lempty"><span class="tic" style="--gc:var(--g7)">${Icon('users')}</span><div>Chưa có người dùng nào ngoài quản trị viên chính</div>
            <a class="btn" href="#/admin/u/new">${Icon('plus')}Thêm người dùng</a></div>`}
       <a class="fab" href="#/admin/u/new" title="Thêm người dùng">${Icon('plus')}</a>`;
     App.main.classList.add('has-fab');
@@ -156,7 +156,7 @@
 
     let h = `<section class="card prof">${pic ? `<img class="pav" src="${esc(pic)}" alt="" referrerpolicy="no-referrer">` : `<span class="lead av big" style="--gc:var(--pri)">${esc(initials(name))}</span>`}
       <div><b class="pn">${esc(name)}</b><div class="muted small">${esc(App.user.email)}</div>
-      <span class="badge ${App.user.admin ? 'info' : 'ok'}">${App.user.owner ? 'Chủ app' : App.user.admin ? 'Quản trị viên' : 'Người dùng'}</span></div></section>`;
+      <span class="badge ${App.user.admin ? 'info' : 'ok'}">${App.user.owner ? 'Quản trị viên chính' : App.user.admin ? 'Quản trị viên' : 'Người dùng'}</span></div></section>`;
 
     h += group('Bảo mật', srow('lock', 'var(--g6)', 'Mật khẩu chủ', esc(vSub) + (Vault.isSet() ? '' : ' · <b>quên là không khôi phục được</b>'), vAct)
       + (Vault.isSet() && App.user.owner ? srow('refresh', 'var(--g6)', 'Đổi mật khẩu chủ', 'Dữ liệu không cần mã hoá lại, đổi xong ngay', '<button class="btn sm ghost" data-act="chgvault">Đổi</button>') : '')
