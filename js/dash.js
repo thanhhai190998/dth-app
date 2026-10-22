@@ -235,8 +235,11 @@
     const days = done.map(r => U.daysBetween(r.Date_Incoming, r.Ngay_hoan_thanh)).filter(n => n != null && !isNaN(n));
     const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : null;
     const trIds = new Set(tr.map(r => String(r.id)));
-    const vt = DB.rows('Kiem_tra_hang').filter(r => !r.Ngay_hoan_thanh && inG(r));
-    const tasks = DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý');
+    const kt = DB.rows('Kiem_tra_hang').filter(inG);
+    const vt = kt.filter(r => !r.Ngay_hoan_thanh), vtDone = kt.filter(r => r.Ngay_hoan_thanh);
+    const tk = DB.rows('Cong_viec_duoc_giao');
+    const tasks = tk.filter(r => r.Trang_thai === 'Đang xử lý');
+    const tasksDone = tk.filter(r => r.Trang_thai !== 'Đang xử lý' && (r.Trang_thai || r.Ngay_hoan_thanh));   // "Đã xử lý" hoặc trạng thái tự ghi khác
 
     let h = goiAll.length > 1 ? filterRow('g', [{ v: '*', l: 'Tất cả gói' }, ...goiAll.map(g => ({ v: g, l: g }))], st.g) : '';
     const tiles = [
@@ -245,8 +248,12 @@
       { ic: 'check', l: 'Tỷ lệ đúng hạn (12 tháng)', v: done.length ? pct(ontime / done.length * 100) : '—', delta: done.length ? { t: ontime + '/' + done.length + ' transmittal', cls: '' } : null },
       { ic: 'clock', l: 'Thời gian xử lý trung bình', v: avg == null ? '—' : nf(avg, 1), u: avg == null ? '' : ' ngày' }
     ];
-    if (can('Kiem_tra_hang')) tiles.push({ ic: 'inspect', l: 'Vật tư chưa xong', v: nf(vt.length, 0), href: '#/i/Kiem_tra_hang' });
-    if (st.g === '*' && can('Cong_viec_duoc_giao')) tiles.push({ ic: 'check', l: 'Task đang làm', v: nf(tasks.length, 0), href: '#/i/Cong_viec_duoc_giao' });
+    if (can('Kiem_tra_hang')) tiles.push(
+      { ic: 'inspect', l: 'Vật tư chưa xong', v: nf(vt.length, 0), href: '#/i/Kiem_tra_hang' },
+      { ic: 'trophy', l: 'Vật tư đã xong', v: nf(vtDone.length, 0), href: '#/i/Kiem_tra_hang', delta: kt.length ? { t: 'trên tổng ' + nf(kt.length, 0) + ' lần kiểm tra', cls: '' } : null });
+    if (st.g === '*' && can('Cong_viec_duoc_giao')) tiles.push(
+      { ic: 'check', l: 'Task đang làm', v: nf(tasks.length, 0), href: '#/i/Cong_viec_duoc_giao' },
+      { ic: 'trophy', l: 'Task đã thực hiện', v: nf(tasksDone.length, 0), href: '#/i/Cong_viec_duoc_giao', delta: tk.length ? { t: 'trên tổng ' + nf(tk.length, 0) + ' task', cls: '' } : null });
     h += `<div class="kpi-row k4">${tiles.map(tile).join('')}</div>`;
 
     const left = r => U.daysBetween(U.today(), DB.val('Cong_viec', r, 'Deadline'));
