@@ -227,10 +227,10 @@
     st.g = st.g && (st.g === '*' || goiAll.includes(st.g)) ? st.g : '*';
     const inG = r => st.g === '*' || r.Goi_thau === st.g;
     const tr = DB.rows('Cong_viec').filter(inG), stt = r => SCHEMA.transStatus(r, DB);
-    const pending = tr.filter(r => !r.Ngay_hoan_thanh);
+    const pending = tr.filter(SCHEMA.transPending);   // transmittal đã chuyển cho người khác không tính hạn
     const over = pending.filter(r => stt(r) === 'Quá hạn');
     const last12 = monthsBack(12);
-    const done = tr.filter(r => r.Ngay_hoan_thanh && last12.includes(U.month(r.Ngay_hoan_thanh)));
+    const done = tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r) && last12.includes(U.month(r.Ngay_hoan_thanh)));
     const ontime = done.filter(r => stt(r) === 'Đúng hạn').length;
     const days = done.map(r => U.daysBetween(r.Date_Incoming, r.Ngay_hoan_thanh)).filter(n => n != null && !isNaN(n));
     const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : null;
@@ -304,7 +304,7 @@
     if (can('Cong_viec')) {
       const left = r => U.daysBetween(U.today(), DB.val('Cong_viec', r, 'Deadline'));
       add('Transmittal gấp', 'quá hạn hoặc còn ≤ 3 ngày', 'box', 'var(--g4)', [{ t: 'Cong_viec',
-        rows: DB.rows('Cong_viec').filter(r => !r.Ngay_hoan_thanh && left(r) <= 3).sort((a, b) => left(a) - left(b)) }]);
+        rows: DB.rows('Cong_viec').filter(r => SCHEMA.transPending(r) && left(r) <= 3).sort((a, b) => left(a) - left(b)) }]);
     }
     if (can('GIAODICH_VAY_MUON')) {
       const owing = id => { const p = DB.get('NGUOI_VAY_MUON', id); return p ? U.num(DB.val('NGUOI_VAY_MUON', p, 'HoNoMinh')) + U.num(DB.val('NGUOI_VAY_MUON', p, 'MinhNoHo')) : 0; };

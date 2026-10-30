@@ -300,7 +300,10 @@
 
   T.Cong_viec = {
     label: 'Transmittal', key: 'id', title: r => r.Transmittal_No || '(chưa có số)',
-    sub: (r, db) => { const p = db.get('Danh_Ba', r.Nguoi_giaoviec); return p ? 'Giao: ' + p.HoTen : r.Goi_thau; },
+    sub: (r, db) => {
+      const p = db.get('Danh_Ba', r.Nguoi_giaoviec), c = transferred(r) && db.get('Danh_Ba', r.Chuyen_cho);
+      return [p ? 'Giao: ' + p.HoTen : r.Goi_thau, c && 'Chuyển cho: ' + c.HoTen].filter(Boolean).join(' · ');
+    },
     needs: ['Danh_sach_goi_thau', 'Danh_Ba'],
     fields: [
       { n: 'Goi_thau', l: 'Gói thầu', t: 'ref', ref: 'Danh_sach_goi_thau', req: true },
@@ -308,15 +311,19 @@
       { n: 'Date_Incoming', l: 'Ngày nhận', t: 'date', init: 'today', req: true },
       { n: 'Nguoi_giaoviec', l: 'Người giao việc', t: 'ref', ref: 'Danh_Ba' },
       { n: 'Nguoi_nhan_Trans', l: 'Người nhận tài liệu', t: 'ref', ref: 'Danh_Ba' },
+      // Phân công lại cho người khác → không tính hạn / trễ hạn nữa
+      { n: 'Chuyen_cho', l: 'Chuyển cho (phân công lại)', t: 'ref', ref: 'Danh_Ba' },
       { n: 'Ngay_hoan_thanh', l: 'Ngày hoàn thành', t: 'date' },
+      { n: 'Ghi_chu', l: 'Ghi chú', t: 'longtext' },
       { n: 'Deadline', l: 'Hạn trả lời', t: 'date', v: (r, db) => U.isoOf(deadlineOf(r, db)) },
       { n: 'TrangThai', l: 'Trạng thái', t: 'text', v: (r, db) => transStatus(r, db) },
-      { n: 'Tinh_trang_xl', l: 'Tình trạng', t: 'text', v: r => r.Ngay_hoan_thanh ? 'Đã xử lý' : 'Đang xử lý' }
+      { n: 'Tinh_trang_xl', l: 'Tình trạng', t: 'text', v: r => transferred(r) ? 'Đã chuyển' : r.Ngay_hoan_thanh ? 'Đã xử lý' : 'Đang xử lý' }
     ],
-    list: { group: 'Tinh_trang_xl', groupOrder: ['Đang xử lý', 'Đã xử lý'], filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Date_Incoming', desc: true, cols: ['Date_Incoming', 'Deadline'], range: true },
+    list: { group: 'Tinh_trang_xl', groupOrder: ['Đang xử lý', 'Đã xử lý', 'Đã chuyển'], filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Date_Incoming', desc: true, cols: ['Date_Incoming', 'Deadline'], range: true },
     detail: { stats: ['Date_Incoming', 'Deadline', 'Ngay_hoan_thanh'], hide: ['TrangThai', 'Tinh_trang_xl'] },
-    // Đang xử lý: đếm ngược số ngày đến hạn; đã xử lý: đúng hạn / trễ hạn
+    // Đang xử lý: đếm ngược số ngày đến hạn; đã xử lý: đúng hạn / trễ hạn; đã chuyển: không tính hạn
     badge: (r, db) => {
+      if (transferred(r)) return { text: 'Đã chuyển', cls: 'muted' };
       if (r.Ngay_hoan_thanh) { const s = transStatus(r, db); return { text: s, cls: s === 'Trễ hạn' ? 'warn' : 'ok' }; }
       const dl = deadlineOf(r, db);
       if (!dl) return { text: 'Đang xử lý', cls: 'info' };
@@ -475,7 +482,11 @@
     const days = U.num(g && g.Han_tra_loi_ngay) || C().deadlineDaysDefault;
     return U.addDays(r.Date_Incoming, days);
   }
+  // Transmittal đã chuyển cho người khác (phân công lại) → không còn là việc của mình, không tính hạn
+  function transferred(r) { return String(r.Chuyen_cho || '').trim() !== ''; }
+  function transPending(r) { return !r.Ngay_hoan_thanh && !transferred(r); }
   function transStatus(r, db) {
+    if (transferred(r)) return 'Đã chuyển';
     const dl = deadlineOf(r, db);
     if (!r.Ngay_hoan_thanh) return dl && U.parseDate(U.today()) > dl ? 'Quá hạn' : 'Đang xử lý';
     return dl && U.parseDate(r.Ngay_hoan_thanh) > dl ? 'Trễ hạn' : 'Đúng hạn';
@@ -561,5 +572,5 @@
     })) } : g);
   }
 
-  window.SCHEMA = { tables: T, groups: GROUPS, groupsWithAlbums, transStatus, deadlineOf, expiryDays };
+  window.SCHEMA = { tables: T, groups: GROUPS, groupsWithAlbums, transStatus, transPending, transferred, deadlineOf, expiryDays };
 })();

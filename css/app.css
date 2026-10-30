@@ -404,6 +404,9 @@ dd { margin: 0; word-break: break-word; display: flex; flex-wrap: wrap; align-it
 /* ---- Form mới ---- */
 .fwrap { display: grid; gap: 0; }
 .fwrap .card.form { border-radius: 16px; }
+.fwarn { display: flex; gap: 10px; align-items: flex-start; border-radius: 16px; font-size: 13.5px; line-height: 1.5;
+  background: color-mix(in srgb, var(--warn) 12%, var(--card)); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.fwarn > svg { flex: none; color: var(--warn); margin-top: 2px; }
 .fsec { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
 .fsec .gic { width: 28px; height: 28px; border-radius: 9px; }
 /* Ô chọn hoặc gõ thêm giá trị mới (danh mục, loại bằng cấp, tên dịch vụ…) */

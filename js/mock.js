@@ -87,7 +87,7 @@
         { id: tr[1], Goi_thau: 'T22', Transmittal_No: 'T-0102 (demo)', Date_Incoming: day(-35), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-15) },
         { id: tr[2], Goi_thau: 'T23', Transmittal_No: 'T-0201 (demo)', Date_Incoming: day(-20), Nguoi_giaoviec: db.b, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
         { id: tr[3], Goi_thau: 'T23', Transmittal_No: 'T-0202 (demo)', Date_Incoming: day(-6), Nguoi_giaoviec: db.b, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
-        { id: tr[4], Goi_thau: 'T19', Transmittal_No: 'T-0301 (demo)', Date_Incoming: day(-12), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
+        { id: tr[4], Goi_thau: 'T19', Transmittal_No: 'T-0301 (demo)', Date_Incoming: day(-20), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Chuyen_cho: db.b, Ngay_hoan_thanh: '', Ghi_chu: 'Trưởng phòng phân công lại cho chị B (demo)' },
         { id: tr[5], Goi_thau: 'T19', Transmittal_No: 'T-0300 (demo)', Date_Incoming: day(-75), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-64) }
       ],
       Document_no_In: [

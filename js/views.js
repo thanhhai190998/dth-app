@@ -243,7 +243,7 @@
         card.classList.toggle('warn', !!warn && n > 0);
         card.classList.toggle('good', !!warn && n === 0);
       };
-      const pending = DB.rows('Cong_viec').filter(r => !r.Ngay_hoan_thanh);
+      const pending = DB.rows('Cong_viec').filter(SCHEMA.transPending);
       set('tr', pending.length);
       set('od', pending.filter(r => SCHEMA.transStatus(r, DB) === 'Quá hạn').length, true);
       set('tk', DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý').length);
@@ -852,8 +852,14 @@
     const main = fields.filter(f => f.t !== 'image' && f.t !== 'file');
     const att = fields.filter(f => f.t === 'image' || f.t === 'file');
     const meta = metaOf(t);
+    // Cột mới chưa thêm vào Google Sheet → máy chủ bỏ qua giá trị (mất khi tải lại) → báo trước
+    const have = DB.rows(t);
+    const noCol = window.APP_CONFIG.mode === 'live' && have.length ? fields.filter(f => have.every(x => !(f.n in x))) : [];
 
     App.main.innerHTML = `<form class="fwrap" novalidate>
+      ${noCol.length ? `<div class="card fwarn">${Icon('alert')}<span>Google Sheet (tab <b>${esc(def.sheet || t)}</b>) chưa có cột
+        ${noCol.map(f => `<b>${esc(f.n)}</b>`).join(', ')} — ${esc(noCol.map(f => f.l).join(', '))} sẽ không được lưu.
+        Thêm tên cột đó vào hàng tiêu đề (hàng 1) của tab rồi tải lại app.</span></div>` : ''}
       <div class="card form">${main.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>
       ${att.length ? `<div class="card form"><div class="fsec"><span class="gic" style="--gc:${meta.color}">${Icon('file')}</span>Đính kèm</div>
         ${att.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>` : ''}
