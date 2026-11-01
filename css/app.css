@@ -142,6 +142,9 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
 .kpi-row.home .kic .ico { width: 22px; height: 22px; }
 .kpi-row.home .kl { grid-area: l; grid-column: auto; font-size: 13px; }
 .kpi-row.home .kn { grid-area: n; }
+/* Nhãn dài xuống 2 dòng cân nhau (không rớt 1 chữ); số của mọi ô thẳng hàng ở đáy dù nhãn 1 hay 2 dòng */
+.kpi-row.home .kcard { grid-template-rows: 1fr auto; }
+.kpi-row.home .kl { align-self: end; text-wrap: balance; }
 @media (max-width: 640px) { .kpi-row.home { gap: 10px; margin-top: -48px; } .kpi-row.home .kcard { column-gap: 10px; padding: 12px; } .kpi-row.home .kic { width: 36px; height: 36px; } }
 
 /* ---- Trang chủ: thêm nhanh ---- */

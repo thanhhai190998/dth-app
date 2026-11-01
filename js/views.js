@@ -151,10 +151,11 @@
     const groups = V.navGroups();
     const can = t => permTableLevel(App.user, t);
     const kpis = [
+      // Đang làm / đã xong của transmittal và task (đếm như Dashboard công việc; transmittal đã chuyển không tính là đã xử lý)
       { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', c: 'var(--pri)', href: '#/i/Cong_viec' },
-      { id: 'od', ts: ['Cong_viec'], label: 'Quá hạn trả lời', ic: 'alert', c: 'var(--bad)', href: '#/i/DASH_CONGVIEC' },
+      { id: 'trd', ts: ['Cong_viec'], label: 'Tổng số transmittal đã xử lý', ic: 'send', c: 'var(--g3)', href: '#/i/Cong_viec' },
       { id: 'tk', ts: ['Cong_viec_duoc_giao'], label: 'Task đang làm', ic: 'check', c: 'var(--g1)', href: '#/i/Cong_viec_duoc_giao' },
-      { id: 'ex', ts: ['BANGCAP', 'Chungchi_congviec'], label: 'Giấy tờ sắp hết hạn', ic: 'clock', c: 'var(--warn)', href: '#/i/DASH_CANHBAO' }
+      { id: 'tkd', ts: ['Cong_viec_duoc_giao'], label: 'Tổng số task đã xử lý', ic: 'trophy', c: 'var(--g4)', href: '#/i/Cong_viec_duoc_giao' }
     ].filter(k => k.ts.some(t => can(t) > 0));
     // Thao tác nhanh: chỉ hiện việc người dùng được thêm
     const acts = [
@@ -203,19 +204,13 @@
     await Promise.all(need.map(t => DB.loadDeps(t).catch(() => {})));
     if (!App.main.querySelector('.kpi-row, .hcard')) return;   // đã sang trang khác trong lúc chờ
     const C = window.APP_CONFIG, today = U.today(), left = d => U.daysBetween(today, d);
-    // Ô số liệu: đếm lên khi vừa mở trang; ô cảnh báo (quá hạn / sắp hết hạn) = 0 thì chuyển màu xanh
-    const set = (id, n, warn) => {
-      const card = App.main.querySelector(`[data-k="${id}"]`); if (!card) return;
-      App.countTo(card.querySelector('.kn'), n, id);
-      card.classList.toggle('warn', !!warn && n > 0);
-      if (warn && n === 0) card.style.setProperty('--kc', 'var(--ok)');
-    };
-    const tr = DB.rows('Cong_viec'), pending = tr.filter(SCHEMA.transPending);
+    // Ô số liệu: đếm lên khi vừa mở trang
+    const set = (id, n) => { const card = App.main.querySelector(`[data-k="${id}"]`); if (card) App.countTo(card.querySelector('.kn'), n, id); };
+    const tr = DB.rows('Cong_viec'), pending = tr.filter(SCHEMA.transPending), tk = DB.rows('Cong_viec_duoc_giao');
     set('tr', pending.length);
-    set('od', pending.filter(r => SCHEMA.transStatus(r, DB) === 'Quá hạn').length, true);
-    set('tk', DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý').length);
-    set('ex', ['BANGCAP', 'Chungchi_congviec'].flatMap(t => DB.rows(t))
-      .filter(r => { const n = SCHEMA.expiryDays(r.NgayHetHan); return n != null && n <= C.expiryWarnDays; }).length, true);
+    set('trd', tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r)).length);
+    set('tk', tk.filter(r => r.Trang_thai === 'Đang xử lý').length);
+    set('tkd', tk.filter(r => r.Trang_thai !== 'Đang xử lý' && (r.Trang_thai || r.Ngay_hoan_thanh)).length);   // "Đã xử lý" hoặc trạng thái tự ghi khác
 
     const tl = App.main.querySelector('#htr'), rl = App.main.querySelector('#hrem');
     let drawTr = () => {}, drawRem = () => {}, nTr = 0, nRem = 0;
