@@ -134,20 +134,6 @@
   };
   V.hrefOf = it => it.href || '#/i/' + enc(it.key);
 
-  // ---------------- "HAY DÙNG": đếm số lần mở từng mục (lưu trên máy này) ----------------
-  const VISIT_KEY = 'pwa-visits', TAB_KEY = 'pwa-home-tab';
-  const store = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
-    set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* bỏ qua */ } } };
-  V.visit = key => { const v = store.get(VISIT_KEY, {}); v[key] = (v[key] || 0) + 1; store.set(VISIT_KEY, v); };
-  const DEFAULT_FAV = ['Cong_viec', 'Document_no_In', 'Cong_viec_duoc_giao', 'DASH_CANHBAO', 'GIAODICH_THUCHI', 'Kiem_tra_hang', 'TAIKHOAN_MATKHAU', 'BANGCAP'];
-  function frequent(all, n = 8) {
-    const v = store.get(VISIT_KEY, {}), byKey = new Map(all.map(it => [it.key, it]));
-    const top = Object.entries(v).sort((a, b) => b[1] - a[1]).map(([k]) => byKey.get(k)).filter(Boolean);
-    const out = [];
-    for (const it of [...top, ...DEFAULT_FAV.map(k => byKey.get(k)).filter(Boolean), ...all]) if (!out.includes(it) && out.length < n) out.push(it);
-    return out;
-  }
-
   function greeting() {
     const h = new Date().getHours();
     const hello = h < 11 ? 'Chào buổi sáng' : h < 13 ? 'Chào buổi trưa' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
@@ -156,107 +142,158 @@
     return { hello, name, day: day.charAt(0).toUpperCase() + day.slice(1) };
   }
 
-  // Ô gọn kiểu màn hình điện thoại: biểu tượng + tên
-  const mini = it => `<a class="mt" href="${V.hrefOf(it)}" style="--gc:${it.color || 'var(--g7)'}" title="${esc(it.desc || it.label)}">
-    <span class="mt-ic">${Icon(it.ic)}</span><span class="mt-l">${esc(it.label)}</span></a>`;
-
+  // ---------------- TRANG CHỦ: bảng điều khiển công việc (bố cục như app Phòng TCXL) ----------------
+  // Ảnh đầu trang · 4 ô số liệu · 2 cột: trái = Transmittal (đang xử lý, gấp nhất trên cùng, rồi các bản vừa xong);
+  // phải = Thao tác nhanh + Nhắc việc. Chỉ hiện phần người dùng được xem. Tìm mục / mọi mục: menu trái (☰).
   V.home = async () => {
     App.head(window.APP_CONFIG.appName, { home: true });
     App.loading();
-    await DB.load('ALBUM').catch(() => {});
-    const groups = V.navGroups(), all = groups.flatMap(g => g.items);
-
+    const groups = V.navGroups();
     const can = t => permTableLevel(App.user, t);
     const kpis = [
-      { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', href: '#/i/Cong_viec' },
-      { id: 'od', ts: ['Cong_viec'], label: 'Quá hạn trả lời', ic: 'alert', href: '#/i/DASH_CONGVIEC' },
-      { id: 'tk', ts: ['Cong_viec_duoc_giao'], label: 'Task đang làm', ic: 'check', href: '#/i/Cong_viec_duoc_giao' },
-      { id: 'ex', ts: ['BANGCAP', 'Chungchi_congviec'], label: 'Giấy tờ sắp hết hạn', ic: 'clock', href: '#/i/DASH_CANHBAO' }
+      { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', c: 'var(--pri)', href: '#/i/Cong_viec' },
+      { id: 'od', ts: ['Cong_viec'], label: 'Quá hạn trả lời', ic: 'alert', c: 'var(--bad)', href: '#/i/DASH_CONGVIEC' },
+      { id: 'tk', ts: ['Cong_viec_duoc_giao'], label: 'Task đang làm', ic: 'check', c: 'var(--g1)', href: '#/i/Cong_viec_duoc_giao' },
+      { id: 'ex', ts: ['BANGCAP', 'Chungchi_congviec'], label: 'Giấy tờ sắp hết hạn', ic: 'clock', c: 'var(--warn)', href: '#/i/DASH_CANHBAO' }
     ].filter(k => k.ts.some(t => can(t) > 0));
-    const quick = [
-      { t: 'Cong_viec', label: 'Transmittal' }, { t: 'GIAODICH_THUCHI', label: 'Thu / chi' },
-      { t: 'Cong_viec_duoc_giao', label: 'Task' }, { t: 'Kiem_tra_hang', label: 'Kiểm tra vật tư' }
-    ].filter(q => can(q.t) === 2);
+    // Thao tác nhanh: chỉ hiện việc người dùng được thêm
+    const acts = [
+      { t: 'Cong_viec', ic: 'box', c: 'var(--pri)', l: 'Thêm transmittal', d: 'Transmittal nhà thầu gửi, tự tính hạn trả lời' },
+      { t: 'Cong_viec_duoc_giao', ic: 'check', c: 'var(--g1)', l: 'Thêm task', d: 'Việc được giao thêm' },
+      { t: 'GIAODICH_THUCHI', ic: 'swap', c: 'var(--g3)', l: 'Ghi thu / chi', d: 'Thu nhập, chi tiêu' },
+      { t: 'Kiem_tra_hang', ic: 'inspect', c: 'var(--g4)', l: 'Kiểm tra vật tư', d: 'Kiểm đếm, mở kiện, ảnh hiện trường' }
+    ].filter(a => can(a.t) === 2);
+    // Nhắc việc: giấy tờ sắp hết hạn, lịch 7 ngày tới, hẹn trả nợ 14 ngày tới, task đang làm (như trang Cảnh báo & nhắc việc)
+    const DOCS = ['BANGCAP', 'Chungchi_congviec', 'Quyet_dinh'].filter(t => can(t) > 0);
+    const remTs = [...DOCS, ...['Calendar', 'GIAODICH_VAY_MUON', 'Cong_viec_duoc_giao'].filter(t => can(t) > 0)];
+    const trOk = can('Cong_viec') > 0;
+    const warnIt = V.findItem('DASH_CANHBAO');
 
     const g = greeting();
-    App.hero(`<div class="hero-in ${kpis.length ? 'with-kpi' : ''}">
+    // Ảnh nhà máy bên phải, mờ dần vào nền màu (css .hero-img); thanh tiêu đề trong suốt phía trên ảnh (main.js App.topTint)
+    App.hero(`<div class="hero-img" aria-hidden="true"></div><div class="hero-in ${kpis.length ? 'with-kpi' : ''}">
       <div class="hday">${esc(g.day)}</div>
       <h1 class="hhello">${esc(g.hello)}, ${esc(g.name)}</h1>
-      <label class="hsearch">${Icon('search')}<input type="search" id="hq" placeholder="Tìm nhanh một mục…" autocomplete="off"></label>
+      <p class="hsub">Transmittal, công việc được giao, tài chính và hồ sơ cá nhân</p>
     </div>`);
 
-    let tab = store.get(TAB_KEY, 'g4');
-    if (!groups.some(x => x.key === tab)) tab = groups[0] && groups[0].key;
     let html = '';
-    if (kpis.length) html += `<div class="kpi-row">${kpis.map(k => `<a class="kcard" href="${k.href}" data-k="${k.id}">
-      <span class="kic">${Icon(k.ic)}</span><span class="kn"><span class="skel"></span></span><span class="kl">${esc(k.label)}</span></a>`).join('')}</div>`;
-    if (quick.length) html += `<div class="quick"><span class="qt">Thêm nhanh</span>${quick.map(q =>
-      `<a class="qbtn" href="#/f/${q.t}/new">${Icon('plus')}${esc(q.label)}</a>`).join('')}</div>`;
+    if (kpis.length) html += `<div class="kpi-row home">${kpis.map(k => `<a class="kcard" href="${k.href}" data-k="${k.id}" style="--kc:${k.c}">
+      <span class="kic">${Icon(k.ic)}</span><span class="kl">${esc(k.label)}</span><span class="kn"><span class="skel"></span></span></a>`).join('')}</div>`;
     if (!groups.length) html += '<div class="empty">Tài khoản của bạn chưa được cấp quyền mục nào. Hãy liên hệ quản trị viên.</div>';
     else {
-      html += `<section class="hsec" id="hfav"><div class="hsec-h"><h2>${Icon('star', 'sm')} Hay dùng</h2><span class="muted small">tự cập nhật theo số lần bạn mở</span></div>
-        <div class="mgrid">${frequent(all).map(mini).join('')}</div></section>`;
-      html += `<section class="hsec" id="hall"><div class="hsec-h"><h2>Tất cả mục</h2></div>
-        <div class="gtabs">${groups.map(x => `<button type="button" class="gtab ${x.key === tab ? 'on' : ''}" data-t="${x.key}" style="--gc:${x.color}">
-          <span class="gt-ic">${Icon(x.ic)}</span>${esc(x.label)}<b>${x.items.length}</b></button>`).join('')}</div>
-        <div class="mgrid" id="gitems"></div></section>`;
-      html += `<section class="hsec" id="hres" hidden><div class="hsec-h"><h2>Kết quả tìm</h2></div><div class="mgrid" id="ritems"></div></section>`;
+      // Thẻ cuối mỗi cột kéo dài, các dòng giãn đều → đáy 2 cột luôn bằng nhau (css .hcols)
+      const L = [], R = [];
+      if (trOk) L.push(`<section class="card hcard"><div class="hch"><h2>${Icon('box', 'sm')} Transmittal</h2><span class="muted small" id="htrn"></span>
+        <a class="small hmore" href="#/i/Cong_viec">Xem tất cả →</a></div>
+        <div class="hlist" id="htr"><span class="skel"></span></div></section>`);
+      if (acts.length) R.push(`<section class="card hcard hq"><div class="hch"><h2>${Icon('plus', 'sm')} Thao tác nhanh</h2></div>
+        <div class="${acts.length > 3 ? 'hq-g' : ''}">${acts.map(a => `<a class="hact" href="#/f/${a.t}/new" style="--ac:${a.c}"><span class="hai">${Icon(a.ic)}</span>
+          <span class="hat"><b>${esc(a.l)}</b><small>${esc(a.d)}</small></span>${Icon('chevron', 'sm')}</a>`).join('')}</div></section>`);
+      if (remTs.length) R.push(`<section class="card hcard"><div class="hch"><h2>${Icon('bell', 'sm')} Nhắc việc</h2>
+        ${warnIt && canItem(warnIt) ? '<a class="small hmore" href="#/i/DASH_CANHBAO">Cảnh báo &amp; nhắc việc →</a>' : ''}</div>
+        <div class="hlist" id="hrem"><span class="skel"></span></div></section>`);
+      if (L.length || R.length) html += `<div class="hcols${L.length && R.length ? '' : ' one'}">${[L, R].filter(c => c.length).map(c => `<div class="hcol">${c.join('')}</div>`).join('')}</div>`;
     }
     App.main.innerHTML = html;
 
-    // Tab nhóm
-    const drawTab = () => {
-      const gr = groups.find(x => x.key === tab); const box = document.getElementById('gitems');
-      if (box && gr) box.innerHTML = gr.items.map(mini).join('');
+    // Số liệu (tải sau, không chặn trang)
+    const need = [...new Set([...kpis.flatMap(k => k.ts), ...(trOk ? ['Cong_viec'] : []), ...remTs])].filter(t => can(t) > 0);
+    if (!need.length) return;
+    await Promise.all(need.map(t => DB.loadDeps(t).catch(() => {})));
+    if (!App.main.querySelector('.kpi-row, .hcard')) return;   // đã sang trang khác trong lúc chờ
+    const C = window.APP_CONFIG, today = U.today(), left = d => U.daysBetween(today, d);
+    // Ô số liệu: đếm lên khi vừa mở trang; ô cảnh báo (quá hạn / sắp hết hạn) = 0 thì chuyển màu xanh
+    const set = (id, n, warn) => {
+      const card = App.main.querySelector(`[data-k="${id}"]`); if (!card) return;
+      App.countTo(card.querySelector('.kn'), n, id);
+      card.classList.toggle('warn', !!warn && n > 0);
+      if (warn && n === 0) card.style.setProperty('--kc', 'var(--ok)');
     };
-    App.main.querySelectorAll('.gtab').forEach(b => b.onclick = () => {
-      tab = b.dataset.t; store.set(TAB_KEY, tab);
-      App.main.querySelectorAll('.gtab').forEach(x => x.classList.toggle('on', x === b));
-      drawTab();
-      centerTab(b, true);
-    });
-    // Đưa tab đang chọn vào giữa dải tab (chỉ cuộn ngang, không kéo trang)
-    const centerTab = (b, smooth) => { const bar = b && b.parentElement; if (!bar) return;
-      bar.scrollTo({ left: b.offsetLeft - bar.offsetLeft - (bar.clientWidth - b.offsetWidth) / 2, behavior: smooth ? 'smooth' : 'auto' }); };
-    centerTab(App.main.querySelector('.gtab.on'));
-    drawTab();
+    const tr = DB.rows('Cong_viec'), pending = tr.filter(SCHEMA.transPending);
+    set('tr', pending.length);
+    set('od', pending.filter(r => SCHEMA.transStatus(r, DB) === 'Quá hạn').length, true);
+    set('tk', DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý').length);
+    set('ex', ['BANGCAP', 'Chungchi_congviec'].flatMap(t => DB.rows(t))
+      .filter(r => { const n = SCHEMA.expiryDays(r.NgayHetHan); return n != null && n <= C.expiryWarnDays; }).length, true);
 
-    // Tìm nhanh: hiện kết quả từ mọi nhóm
-    const hq = document.getElementById('hq');
-    hq.oninput = () => {
-      const q = U.norm(hq.value.trim());
-      const res = q ? all.filter(it => U.match(it.label + ' ' + (it.desc || ''), hq.value)) : [];
-      ['hfav', 'hall'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = !!q; });
-      App.main.querySelectorAll('.kpi-row, .quick').forEach(el => { el.hidden = !!q; });
-      const rs = document.getElementById('hres');
-      if (rs) { rs.hidden = !q; document.getElementById('ritems').innerHTML = res.length ? res.map(mini).join('') : '<div class="muted small mg-empty">Không có mục nào khớp</div>'; }
-      document.querySelector('.hero-in').classList.toggle('with-kpi', kpis.length > 0 && !q);
-    };
-
-    // Số liệu trong ngày (tải sau, không chặn trang)
-    if (kpis.length) {
-      const need = [...new Set(kpis.flatMap(k => k.ts).filter(t => can(t) > 0))];
-      await Promise.all(need.map(t => DB.loadDeps(t).catch(() => {})));
-      const set = (id, n, warn) => {
-        const card = App.main.querySelector(`[data-k="${id}"]`); if (!card) return;
-        card.querySelector('.kn').textContent = n;
-        card.classList.toggle('warn', !!warn && n > 0);
-        card.classList.toggle('good', !!warn && n === 0);
-      };
-      const pending = DB.rows('Cong_viec').filter(SCHEMA.transPending);
-      set('tr', pending.length);
-      set('od', pending.filter(r => SCHEMA.transStatus(r, DB) === 'Quá hạn').length, true);
-      set('tk', DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý').length);
-      set('ex', ['BANGCAP', 'Chungchi_congviec'].flatMap(t => DB.rows(t))
-        .filter(r => { const n = SCHEMA.expiryDays(r.NgayHetHan); return n != null && n <= window.APP_CONFIG.expiryWarnDays; }).length, true);
+    const tl = App.main.querySelector('#htr'), rl = App.main.querySelector('#hrem');
+    let drawTr = () => {}, drawRem = () => {}, nTr = 0, nRem = 0;
+    if (tl) {
+      // Đang xử lý: hạn gần nhất (quá hạn) lên đầu; sau đó các bản đã xử lý / đã chuyển gần đây nhất
+      const dl = r => U.isoOf(DB.val('Cong_viec', r, 'Deadline')) || '9999';
+      const done = r => String(r.Ngay_hoan_thanh || r.Date_Incoming || '');
+      const rows = [...pending.sort((a, b) => dl(a).localeCompare(dl(b))),
+        ...tr.filter(r => !SCHEMA.transPending(r)).sort((a, b) => done(b).localeCompare(done(a)))];
+      const hn = App.main.querySelector('#htrn'); if (hn) hn.textContent = pending.length ? pending.length + ' đang xử lý' : '';
+      nTr = Math.min(rows.length, 20);
+      drawTr = m => { tl.innerHTML = rows.length ? `<div class="hrow2 tr hth"><span>Số transmittal</span><span>Gói</span><span class="hin">Ngày nhận</span><span class="hdl">Hạn trả lời</span><span class="hn">Trạng thái</span></div>`
+        + rows.slice(0, m).map(r => { const g = String(r.Goi_thau || ''), b = TT().Cong_viec.badge(r, DB);
+          return `<a class="hrow2 tr" href="#/r/Cong_viec/${enc(DB.keyOf('Cong_viec', r))}" title="${esc(DB.title('Cong_viec', r))}">
+            <b class="hg">${esc(DB.title('Cong_viec', r))}</b><span class="htag" style="--tc:${g ? toneOf(g.slice(0, 5)) : 'var(--muted)'}">${esc(g.slice(0, 5))}</span>
+            <span class="hs hin">${esc(U.fmtDate(r.Date_Incoming))}</span><span class="hs hdl">${esc(U.fmtDate(DB.val('Cong_viec', r, 'Deadline')))}</span>
+            <span class="hn">${V.badgeHtml(b)}</span></a>`; }).join('')
+          + (rows.length > m ? `<div class="muted small hrest">+ ${U.int(rows.length - m)} transmittal khác — <a href="#/i/Cong_viec">xem danh sách</a></div>` : '')
+        : '<div class="muted small hrest">Chưa có transmittal nào</div>'; };
     }
+
+    if (rl) {
+      // Mỗi dòng: nội dung · loại · ngày · còn / quá N ngày. Có hạn thì gấp nhất lên đầu; task (không có hạn) xếp sau, giao lâu nhất trước
+      const R = [];
+      const due = (n, soon) => n < 0 ? { text: 'Quá ' + (-n) + ' ngày', cls: 'bad' } : { text: n === 0 ? 'Hôm nay' : 'Còn ' + n + ' ngày', cls: n <= soon ? 'warn' : 'info' };
+      DOCS.forEach(t => DB.rows(t).forEach(r => { const n = SCHEMA.expiryDays(r.NgayHetHan);
+        if (n != null && n <= C.expiryWarnDays) R.push({ t, r, l: 'Giấy tờ', k: 'doc', d: r.NgayHetHan, dl: 'hết hạn', n, b: n < 0 ? { text: 'Hết hạn', cls: 'bad' } : due(n, 30) }); }));
+      if (can('Calendar') > 0) DB.rows('Calendar').forEach(r => { const n = left(r.NgayBatDau);
+        if (n >= 0 && n <= 7) R.push({ t: 'Calendar', r, l: 'Lịch', k: 'cal', d: r.NgayBatDau, dl: 'bắt đầu', n, b: due(n, 1) }); });
+      if (can('GIAODICH_VAY_MUON') > 0) {
+        const owing = id => { const p = DB.get('NGUOI_VAY_MUON', id); return p ? U.num(DB.val('NGUOI_VAY_MUON', p, 'HoNoMinh')) + U.num(DB.val('NGUOI_VAY_MUON', p, 'MinhNoHo')) : 0; };
+        DB.rows('GIAODICH_VAY_MUON').forEach(r => { const n = r.NgayHenTra ? left(r.NgayHenTra) : null;
+          if (n != null && n <= 14 && owing(r.NguoiID) > 0) R.push({ t: 'GIAODICH_VAY_MUON', r, l: 'Trả nợ', k: 'debt', d: r.NgayHenTra, dl: 'hẹn trả', n, b: due(n, 3) }); });
+      }
+      if (can('Cong_viec_duoc_giao') > 0) DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý')
+        .forEach(r => R.push({ t: 'Cong_viec_duoc_giao', r, l: 'Task', k: 'task', d: r.Ngay_giao, dl: 'giao ngày', n: null, b: { text: 'Đang làm', cls: 'muted' } }));
+      R.sort((a, b) => (a.n == null) - (b.n == null) || (a.n != null ? a.n - b.n : String(a.d || '').localeCompare(String(b.d || ''))));
+      nRem = Math.min(R.length, 12);
+      drawRem = m => { rl.innerHTML = R.length ? `<div class="hrow2 rem hth"><span>Nội dung</span><span>Loại</span><span class="hn">Thời hạn</span></div>`
+        + R.slice(0, m).map(x => `<a class="hrow2 rem" href="#/r/${x.t}/${enc(DB.keyOf(x.t, x.r))}" title="${esc(DB.title(x.t, x.r) + (x.d ? ' · ' + x.dl + ' ' + (x.k === 'cal' ? U.fmtDateTime(x.d) : U.fmtDate(x.d)) : ''))}">
+            <b class="hg">${esc(DB.title(x.t, x.r))}</b><span class="htag t-${x.k}">${esc(x.l)}</span><span class="hn">${V.badgeHtml(x.b)}</span></a>`).join('')
+          + (R.length > m ? `<div class="muted small hrest">+ ${U.int(R.length - m)} mục khác${warnIt && canItem(warnIt) ? ' — <a href="#/i/DASH_CANHBAO">xem tất cả</a>' : ''}</div>` : '')
+        : `<div class="hok">${Icon('check', 'sm')} Không có gì cần nhắc — tốt lắm!</div>`; };
+    }
+
+    // Vừa 1 màn hình (máy tính, 2 cột): vẽ tối đa 20 transmittal / 12 nhắc việc rồi bớt dần dòng ở cột cao hơn tới khi cả trang
+    // kể cả chân trang không phải cuộn (tối thiểu 3 dòng mỗi bảng). Điện thoại / cửa sổ hẹp (1 cột) cuộn bình thường, 10 / 6 dòng.
+    // Đổi cỡ cửa sổ thì tính lại.
+    const fit = () => {
+      if (!document.body.contains(tl || rl)) return;   // đã sang trang khác
+      const cols = App.main.querySelector('.hcols'), wide = cols && innerWidth > 860;
+      let a = wide ? nTr : Math.min(nTr, 10), b = wide ? nRem : Math.min(nRem, 6);
+      drawTr(a); drawRem(b);
+      if (!wide) return;
+      const colH = el => el ? el.closest('.hcol').offsetHeight : 0;
+      cols.classList.add('fit');   // đo chiều cao tự nhiên từng cột (không kéo giãn cho bằng nhau)
+      // Đo theo chiều cao thật của nội dung, bỏ min-height của main (tính từ --hero-h, biến này chỉ cập nhật ở khung hình sau)
+      App.main.style.minHeight = '0px';
+      for (let i = 0; i < 40 && document.documentElement.scrollHeight - innerHeight > 1; i++) {
+        if (a > 3 && (colH(tl) >= colH(rl) || b <= 3)) drawTr(--a);
+        else if (b > 3) drawRem(--b);
+        else break;
+      }
+      // màn hình quá thấp, bớt tới tối thiểu vẫn phải cuộn → thôi bớt, hiện như điện thoại
+      if (document.documentElement.scrollHeight - innerHeight > 1) { drawTr(Math.min(nTr, 10)); drawRem(Math.min(nRem, 6)); }
+      App.main.style.minHeight = '';
+      cols.classList.remove('fit');
+    };
+    V._homeFit = fit;
+    fit();
+    if (document.fonts) document.fonts.ready.then(fit);
+    if (!V._homeFitBound) { V._homeFitBound = true; let tm; window.addEventListener('resize', () => { clearTimeout(tm); tm = setTimeout(() => V._homeFit(), 150); }); }
   };
 
   // ---------------- DANH SÁCH ----------------
   V.list = async key => {
     const it = V.findItem(key);
     if (!it || !canItem(it)) return App.notFound();
-    V.visit(key);
     if (it.type === 'dash') return Dash.render(it);
     if (it.type === 'music') return Music.render(it);
     const t = it.table, def = TT()[t], L = def.list || {};
