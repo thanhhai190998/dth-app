@@ -208,7 +208,6 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
 .dr-g { margin-top: 4px; }
 .dr-gh { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 10px; background: none;
   color: var(--text); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
-.dr-gh:hover { background: var(--hover); }
 .dr-gl { flex: 1; }
 .dr-ch { color: var(--muted); transform: rotate(90deg); transition: transform .2s; display: grid; }
 .dr-ch .ico { width: 16px; height: 16px; }
@@ -218,8 +217,10 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
 .drawer.searching .dr-nav > .dr-i, .drawer.searching .dr-ch { display: none; }
 .dr-i { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; margin: 1px 0; border-radius: 10px; color: var(--text); font-size: 14px; }
 .dr-items .dr-i { padding-left: 46px; position: relative; }
-.dr-i:hover { background: var(--hover); }
+/* Rê chuột qua mục menu: nền xám rõ hơn --hover (tự hợp cả nền sáng / tối); mục đang mở giữ màu chủ đạo, đậm thêm khi rê */
+.dr-i:hover, .dr-gh:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
 .dr-i.on { background: color-mix(in srgb, var(--pri) 13%, transparent); color: var(--pri); font-weight: 600; }
+.dr-i.on:hover { background: color-mix(in srgb, var(--pri) 20%, transparent); }
 .dr-ic { display: grid; color: var(--muted); }
 .dr-items .dr-ic { position: absolute; left: 18px; color: var(--gc); }
 .dr-i.on .dr-ic { color: var(--pri); }
@@ -227,12 +228,43 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
 #menuBtn .ico { width: 22px; height: 22px; margin: auto; }
 @media (max-width: 759px) { #menuBtn { display: none; } }
 @media (min-width: 1100px) {
+  /* --nav-w = bề rộng menu trái đang chiếm (thu / mở menu: xem khối "Menu trái thu / mở" bên dưới) */
+  .has-drawer { --nav-w: 264px; }
   .has-drawer .drawer { top: calc(54px + env(safe-area-inset-top)); transform: none; visibility: visible; transition: none; box-shadow: none; z-index: 15; padding-top: 0; width: 264px; }
-  .has-drawer .dr-h, .has-drawer .scrim, .has-drawer #menuBtn { display: none; }
+  .has-drawer .dr-h, .has-drawer .scrim { display: none; }
   .has-drawer .dr-search { margin-top: 12px; }
-  .has-drawer main, .has-drawer .foot { margin-left: calc(264px + max(0px, (100vw - 264px - 1040px) / 2)); margin-right: auto; }
-  .has-drawer #hero { padding-left: 264px; }
+  .has-drawer main, .has-drawer .foot { margin-left: calc(var(--nav-w) + max(0px, (100vw - var(--nav-w) - 1040px) / 2)); margin-right: auto; }
+  .has-drawer #hero { padding-left: var(--nav-w); }
   .dr-open { overflow: auto; }
+
+  /* ---- Menu trái thu / mở (như app Phòng TCXL): nút ☰ trên thanh trên; mặc định thu thành dải biểu tượng nền màu chủ đạo
+     (nối liền thanh trên), rê chuột lên biểu tượng nhóm thì bung danh sách mục; bấm ☰ → menu đầy đủ, bấm lần nữa thu lại ---- */
+  .nav-anim main, .nav-anim .foot { transition: margin-left .22s ease; }
+  .nav-anim #hero { transition: padding-left .22s ease; }
+  .nav-anim .drawer { transition: width .22s ease !important; }
+  .nav-anim .drawer, .nav-anim .dr-nav { overflow: hidden; }   /* đang co / giãn: chữ không tràn, không xuống dòng */
+  .nav-anim .dr-i, .nav-anim .dr-gh, .nav-anim .dr-search { white-space: nowrap; }
+  .has-drawer.nav-mini { --nav-w: 68px; }
+  .has-drawer.nav-mini .drawer { width: 68px; background: linear-gradient(180deg, var(--pri) 0%, var(--pri2) 100%); border-right-color: transparent; }
+  .has-drawer.nav-mini .dr-search, .has-drawer.nav-mini .dr-gl, .has-drawer.nav-mini .dr-gh .cnt, .has-drawer.nav-mini .dr-ch,
+  .has-drawer.nav-mini .dr-nav > .dr-i > span:not(.dr-ic), .has-drawer.nav-mini .dr-f .dr-i > span:not(.dr-ic) { display: none; }
+  .has-drawer.nav-mini .dr-nav { overflow: visible; padding-top: 12px; }
+  .has-drawer.nav-mini .dr-nav > .dr-i, .has-drawer.nav-mini .dr-f .dr-i { justify-content: center; padding: 10px 0; }
+  .has-drawer.nav-mini .dr-gh { justify-content: center; padding: 7px 0; }
+  .has-drawer.nav-mini .dr-nav > .dr-i, .has-drawer.nav-mini .dr-f .dr-i, .has-drawer.nav-mini .dr-nav > .dr-i .dr-ic, .has-drawer.nav-mini .dr-f .dr-ic { color: #fff; }
+  .has-drawer.nav-mini .dr-gh .gic { background: rgba(255, 255, 255, .16); color: #fff; }
+  .has-drawer.nav-mini .dr-nav > .dr-i:hover, .has-drawer.nav-mini .dr-gh:hover, .has-drawer.nav-mini .dr-f .dr-i:hover { background: rgba(255, 255, 255, .14); }
+  .has-drawer.nav-mini .dr-nav > .dr-i.on, .has-drawer.nav-mini .dr-g:has(.dr-i.on) > .dr-gh { background: rgba(255, 255, 255, .22); }   /* mục / nhóm đang mở */
+  .has-drawer.nav-mini .dr-g:has(.dr-i.on) .gic { background: #fff; color: var(--pri); }
+  .has-drawer.nav-mini .dr-f { border-top-color: rgba(255, 255, 255, .18); }
+  /* Danh sách mục bung ra cạnh biểu tượng nhóm (thẻ nổi, nền thường) */
+  .has-drawer.nav-mini .dr-g { position: relative; }
+  .has-drawer.nav-mini .dr-g .dr-items { display: none; position: absolute; left: calc(100% + 2px); top: -6px; z-index: 30; min-width: 230px; padding: 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .22); }
+  .has-drawer.nav-mini .dr-g .dr-items::before { content: attr(data-l); display: block; padding: 6px 10px 8px; font-weight: 700; font-size: 13px; color: var(--muted); }
+  .has-drawer.nav-mini .dr-g .dr-items::after { content: ""; position: absolute; left: -12px; top: 0; bottom: 0; width: 12px; }   /* cầu nối: rê chuột sang không bị tắt */
+  .has-drawer.nav-mini .dr-g:hover .dr-items, .has-drawer.nav-mini .dr-g:focus-within .dr-items { display: block; }
+  .has-drawer.nav-mini .dr-g.fly-off .dr-items { display: none; }   /* vừa chọn mục: cất danh sách tới khi chuột rời nhóm (main.js) */
 }
 
 /* ---- Thanh điều hướng dưới (điện thoại) ---- */
@@ -773,7 +805,7 @@ a.hb:hover { background: var(--hover); }
   .has-mp .foot { padding-bottom: 78px; }
 }
 @media (min-width: 1100px) {
-  .has-drawer .mp { left: 264px; padding: 0 max(16px, calc((100vw - 264px - 1040px) / 2)); }
+  .has-drawer .mp { left: var(--nav-w); padding: 0 max(16px, calc((100vw - var(--nav-w) - 1040px) / 2)); }
 }
 
 /* ---- Khoá ứng dụng (mã PIN) ---- */
@@ -921,6 +953,9 @@ body.soft { --r: 18px; --sh-soft: 0 1px 2px rgba(15, 23, 42, .03), 0 6px 20px rg
 .soft .btn:active, .soft .ibtn:active, .soft .segb:active, .soft .chip2:active { transform: scale(.96); }
 .soft .btn:not(.ghost):not(.danger) { box-shadow: 0 3px 10px color-mix(in srgb, var(--pri) 16%, transparent); }
 .soft .dr-i, .soft .dr-gh { transition: background .18s, color .18s; }
+/* Danh sách bung ra từ dải biểu tượng: mờ dần + trượt nhẹ */
+.soft.has-drawer.nav-mini .dr-g:hover .dr-items, .soft.has-drawer.nav-mini .dr-g:focus-within .dr-items { animation: flyIn .18s var(--ease) both; }
+@keyframes flyIn { from { opacity: 0; transform: translateX(-6px) scale(.98); } }
 /* 3) Chuyển trang: trang mờ dần, các thẻ trượt lên lần lượt (main.js thêm body.vin khi đổi trang) */
 .soft.vin main { animation: fadeIn .28s ease both; }
 .soft.vin #hero .hero-in { animation: riseIn .5s var(--ease) both; }
