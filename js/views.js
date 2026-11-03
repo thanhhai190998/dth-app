@@ -859,11 +859,11 @@
         } else {
           const type = { email: 'email', url: 'url', phone: 'tel' }[f.t] || 'text';
           const im = f.t === 'phone' ? 'inputmode="tel"' : '';
-          input = `<input ${nm} type="${type}" ${im} value="${esc(v)}" ${ro}>`;
+          input = `<input ${nm} type="${type}" ${im} value="${esc(v)}" ${ro} ${f.ph ? `placeholder="${esc(f.ph)}"` : ''}>`;
         }
       }
     }
-    return `<div class="fld" data-f="${esc(f.n)}"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}</div>`;
+    return `<div class="fld" data-f="${esc(f.n)}"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}${f.hint ? `<small class="fhint">${esc(f.hint)}</small>` : ''}</div>`;
   }
 
   // ---------- Bảng con nhập nhiều dòng trong form (schema `inline`, vd tài liệu trong transmittal) ----------

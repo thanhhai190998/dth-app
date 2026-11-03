@@ -2,7 +2,8 @@
 //  DANH SÁCH TRANSMITTAL DẠNG BẢNG (kiểu MS Access, như app Phòng TCXL — js/grid.js)
 //   • Mỗi tài liệu đến 1 dòng (bảng ghép SCHEMA TRANS_DOC: tài liệu + thông tin transmittal của nó);
 //     transmittal chưa nhập tài liệu vẫn có 1 dòng. Cột như sổ theo dõi Excel: No, Gói thầu, Số transmittal, Mã / Tên tài liệu,
-//     Rev., Ngày nhận tài liệu, Người giao việc, Ngày giao việc, Chuyển lại cho, Ngày hoàn thành, Người nhận phát hành, Status…
+//     Rev., Ngày nhận tài liệu, Người giao việc, Ngày giao việc, Chuyển lại cho, Ngày hoàn thành, Người nhận phát hành, Status…,
+//     Số Transmittal Out / Số CaRs / Trạng thái Out (từ Tài liệu đi ghép theo mã tài liệu)
 //   • Nút "Cột": chọn cột hiện / ẩn, đổi thứ tự; kéo mép tiêu đề đổi độ rộng; bấm tiêu đề sắp xếp; phễu ở tiêu đề → lọc cột
 //     (lưu trên máy này). Xuất Excel đúng các cột / dòng đang hiện. Bấm dòng → trang transmittal (sửa, thêm tài liệu).
 //  Địa chỉ: #/i/Cong_viec · kèm bộ lọc cột, vd ?Status=Đang xử lý&Goi_thau=T22
@@ -18,7 +19,7 @@
     App.head(it.label, { back: true });
     App.loading();
     await DB.loadDeps('Cong_viec');
-    if (permTableLevel(App.user, 'Document_no_In') > 0) await DB.loadDeps('Document_no_In').catch(() => {});
+    await Promise.all(['Document_no_In', 'Document_no_Out'].filter(x => permTableLevel(App.user, x) > 0).map(x => DB.loadDeps(x).catch(() => {})));
     let st = Views.state[key];
     if (!st || !st.flt) st = Views.state[key] = { q: '', flt: {}, sort: { n: 'STT', dir: -1 } };   // mới nhất trên cùng
     // Mở kèm bộ lọc (#/i/Cong_viec?Status=Đang xử lý&Goi_thau=T22) → thành bộ lọc cột, rồi bỏ khỏi địa chỉ

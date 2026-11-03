@@ -35,7 +35,12 @@
     return [...new Set(pick.filter(n => n && all.includes(n)))];
   };
   G.visible = (t, view) => {
-    const all = G.allCols(t).map(c => c.n), saved = ls.get('pwa-cols|' + vk(t, view), null);
+    const all = G.allCols(t).map(c => c.n);
+    let saved = ls.get('pwa-cols|' + vk(t, view), null);
+    // Bảng có thêm cột mới (list.newCols) sau khi người dùng đã chọn cột → nối các cột đó vào cuối bộ đã lưu, chỉ 1 lần
+    const nc = !view && (TT()[t].list || {}).newCols, vkey = 'pwa-colsv|' + vk(t, view);
+    if (nc && saved && (ls.get(vkey, 1) < nc.v)) { saved = [...saved, ...nc.cols.filter(n => !saved.includes(n))]; ls.set('pwa-cols|' + vk(t, view), saved); }
+    if (nc && (ls.get(vkey, 1) < nc.v)) ls.set(vkey, nc.v);
     const v = (saved || G.defaults(t, view)).filter(n => all.includes(n));
     return v.length ? v : G.defaults(t, view);
   };

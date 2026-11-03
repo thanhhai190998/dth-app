@@ -101,9 +101,9 @@
         { id: id(), id_transmittal: tr[4], 'Document Number': 'LP1-T19-SPC-0005 (demo)', Description: 'Spec động cơ (demo)', Rev: '0', Purpose: 'FI : For Information', File: '', Ngay_guiDen: day(-12) }
       ],
       Document_no_Out: [
-        { id: id(), id_transmittal: tr[0], 'Document Number': 'LP1-T22-DAL-0001 (demo)', Description: 'Comm sheet', Rev: 'B', Status: 'B: Approved with comments', File: '', Ngay_hoan_hanh: day(-30) },
-        { id: id(), id_transmittal: tr[1], 'Document Number': 'LP1-T22-CAL-0002 (demo)', Description: 'Comm sheet', Rev: 'A', Status: 'C: Disapproved', File: '', Ngay_hoan_hanh: day(-15) },
-        { id: id(), id_transmittal: tr[5], 'Document Number': 'LP1-T19-DSL-0006 (demo)', Description: 'Comm sheet', Rev: '1', Status: 'A: Approved', File: '', Ngay_hoan_hanh: day(-64) }
+        { id: id(), id_transmittal: tr[0], So_Transmittal_Out: 'T-0360 (demo)', So_CaRs: 'CaRs 0239 (R1)', 'Document Number': 'LP1-T22-DAL-0001 (demo)', Description: 'Comm sheet', Rev: 'B', Status: 'B: Approved with comments', File: '', Ngay_hoan_hanh: day(-30) },
+        { id: id(), id_transmittal: tr[1], So_Transmittal_Out: 'T-0393 (demo)', So_CaRs: 'CaRs 0269 (R1)', 'Document Number': '', Description: 'Comm sheet', Rev: 'A', Status: 'C: Disapproved', File: '', Ngay_hoan_hanh: day(-15) },
+        { id: id(), id_transmittal: tr[5], So_Transmittal_Out: 'T-0201 (demo)', So_CaRs: 'CaRs 0101 (R2)', 'Document Number': 'LP1-T19-DSL-0006 (demo)', Description: 'Comm sheet', Rev: '1', Status: 'A: Approved', File: '', Ngay_hoan_hanh: day(-64) }
       ],
       Cong_viec_duoc_giao: [
         { id: id(), Ten_cong_viec: 'Tổng hợp báo cáo tuần (demo)', Ngay_giao: day(-3), Nguoi_giao: db.a, Trang_thai: 'Đang xử lý', Ngay_hoan_thanh: '', Ghi_chu: '' },

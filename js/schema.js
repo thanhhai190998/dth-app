@@ -363,6 +363,10 @@
         v: r => transferred(r._tr) ? 'Đã chuyển' : r._tr.Ngay_hoan_thanh ? 'Hoàn thành' : 'Đang xử lý' },
       { n: 'Deadline', l: 'Hạn trả lời', t: 'date', w: 126, v: (r, db) => U.isoOf(deadlineOf(r._tr, db)) },
       { n: 'Ghi_chu', l: 'Ghi chú', t: 'text', w: 240, v: r => TR(r, 'Ghi_chu') },
+      // Trả lời (Tài liệu đi ghép theo mã tài liệu; tài liệu đi không ghi mã = áp cho mọi tài liệu của transmittal)
+      { n: 'Out_Trans', l: 'Số Transmittal Out', t: 'text', w: 156, v: r => outOf(r, 'So_Transmittal_Out') },
+      { n: 'Out_CaRs', l: 'Số CaRs', t: 'text', w: 170, v: r => outOf(r, 'So_CaRs') },
+      { n: 'Out_Status', l: 'Trạng thái Out', t: 'text', w: 132, v: r => outOf(r, 'Status', s => s.split(':')[0].trim()) },
       { n: 'Purpose', l: 'Mục đích', t: 'text', w: 160, v: r => r._doc ? r._doc.Purpose : '' },
       { n: 'Doc_Date', l: 'Ngày nhận (ghi ở tài liệu)', s: 'Ngày nhận TL', t: 'date', w: 136, v: r => r._doc ? r._doc.Ngay_guiDen : '' }
     ],
@@ -370,19 +374,31 @@
     badge: (r, db) => T.Cong_viec.badge(r._tr, db),
     list: { badgeLabel: 'Thời hạn', countUnit: 'tài liệu',
       tcols: ['STT', 'Goi_thau', 'Transmittal_No', 'Doc_No', 'Doc_Name', 'Rev', 'Date_Incoming', 'Nguoi_giaoviec', 'Ngay_giao_viec',
-        'Chuyen_cho', 'Ngay_hoan_thanh', 'Nguoi_nhan_Trans', 'Status', 'Deadline', '_badge', 'Ghi_chu'] }
+        'Chuyen_cho', 'Ngay_hoan_thanh', 'Nguoi_nhan_Trans', 'Status', 'Deadline', '_badge', 'Ghi_chu', 'Out_Trans', 'Out_CaRs', 'Out_Status'],
+      newCols: { v: 2, cols: ['Out_Trans', 'Out_CaRs', 'Out_Status'] } }   // cột thêm sau 0.14.0 → tự thêm vào bộ cột người dùng đã lưu
   };
+  // Giá trị Out của 1 dòng: các tài liệu đi khớp, bỏ trùng, cách nhau dấu phẩy
+  const outOf = (r, n, fm) => [...new Set((r._outs || []).map(o => String(o[n] ?? '').trim()).filter(Boolean).map(fm || (x => x)))].join(', ');
   // Dòng của bảng ghép: số No theo thứ tự nhận (cũ nhất = 1), như sổ theo dõi Excel — lọc / sắp xếp không đổi số
   function transDocRows(db) {
-    const docs = new Map();
+    const docs = new Map(), outs = new Map();
     db.rows('Document_no_In').forEach(d => { const k = String(d.id_transmittal || ''); if (!docs.has(k)) docs.set(k, []); docs.get(k).push(d); });
+    db.rows('Document_no_Out').forEach(d => { const k = String(d.id_transmittal || ''); if (!outs.has(k)) outs.set(k, []); outs.get(k).push(d); });
+    const codes = o => U.splitList(o['Document Number']).map(U.norm);
+    // Tài liệu đi của 1 dòng: ghi đúng mã tài liệu này; không có thì các tài liệu đi không ghi mã (áp cho cả transmittal)
+    const outsOf = (tr, d) => {
+      const os = outs.get(String(tr.id)) || [];
+      if (!d) return os;
+      const k = U.norm(String(d['Document Number'] || '').trim()), hit = k ? os.filter(o => codes(o).includes(k)) : [];
+      return hit.length ? hit : os.filter(o => !codes(o).length);
+    };
     const trs = db.rows('Cong_viec').slice().sort((a, b) => String(a.Date_Incoming || '9999').localeCompare(String(b.Date_Incoming || '9999'))
       || String(a.Transmittal_No || '').localeCompare(String(b.Transmittal_No || ''), 'vi', { numeric: true }));
     const out = [];
     trs.forEach(tr => {
       const ds = (docs.get(String(tr.id)) || []).slice().sort((a, b) => String(a['Document Number'] || '').localeCompare(String(b['Document Number'] || ''), 'vi', { numeric: true }));
-      if (!ds.length) out.push({ id: 'T|' + tr.id, _tr: tr, _doc: null });
-      ds.forEach(d => out.push({ id: 'D|' + d.id, _tr: tr, _doc: d }));
+      if (!ds.length) out.push({ id: 'T|' + tr.id, _tr: tr, _doc: null, _outs: outsOf(tr, null) });
+      ds.forEach(d => out.push({ id: 'D|' + d.id, _tr: tr, _doc: d, _outs: outsOf(tr, d) }));
     });
     out.forEach((r, i) => { r._no = i + 1; });
     return out;
@@ -403,19 +419,29 @@
     list: { group: 'Purpose', sort: 'Ngay_guiDen', desc: true, cols: ['Rev', 'id_transmittal'], range: true }
   };
 
+  // Tài liệu đi = trả lời transmittal: Số Transmittal Out (Document Control cấp), Số CaRs (comm sheet), Trạng thái Out (A–E).
+  // "Mã tài liệu trả lời" ghép với tài liệu đến cùng mã (bảng Transmittal mỗi tài liệu 1 dòng); để trống = áp cho mọi tài liệu của transmittal.
+  const OUT_ST = { A: 'ok', B: 'info', C: 'bad', D: 'muted', E: 'muted' };
   T.Document_no_Out = {
-    label: 'Tài liệu đi', key: 'id', title: r => r['Document Number'], sub: r => r.Description,
+    label: 'Tài liệu đi', key: 'id',
+    title: r => [r.So_Transmittal_Out, r.So_CaRs].filter(Boolean).join(' · ') || r['Document Number'] || '(chưa có số)',
+    sub: r => [r['Document Number'], r.Description].filter(Boolean).join(' — '),
     needs: ['Cong_viec'],
     fields: [
       { n: 'id_transmittal', l: 'Transmittal', t: 'ref', ref: 'Cong_viec', req: true },
-      { n: 'Document Number', l: 'Số tài liệu', t: 'text', req: true },
+      // 2 cột mới (03/11/2026) — phải có tiêu đề cột trên tab Document_no_Out của Sheet
+      { n: 'So_Transmittal_Out', l: 'Số Transmittal Out', t: 'text', ph: 'VD: T-0360 — để trống nếu Document Control chưa cấp số' },
+      { n: 'So_CaRs', l: 'Số CaRs', t: 'text', ph: 'VD: CaRs 0239 (R1)' },
+      { n: 'Status', l: 'Trạng thái Out', t: 'enum', opts: ['A: Approved', 'B: Approved with comments', 'C: Disapproved', 'D: Accepted for information', 'E: Accepted for information with comments'] },
+      { n: 'Ngay_hoan_hanh', l: 'Ngày phát hành', t: 'date', init: 'today' },
+      { n: 'Document Number', l: 'Mã tài liệu trả lời', t: 'text', ph: 'Để trống = mọi tài liệu của transmittal',
+        hint: 'Chỉ trả lời một vài tài liệu của transmittal: ghi mã các tài liệu đó, cách nhau dấu phẩy.' },
       { n: 'Description', l: 'Mô tả', t: 'longtext' },
       { n: 'Rev', l: 'Rev', t: 'text' },
-      { n: 'Status', l: 'Status', t: 'enum', opts: ['A: Approved', 'B: Approved with comments', 'C: Disapproved', 'D: Accepted for information', 'E: Accepted for information with comments'] },
-      { n: 'File', l: 'File', t: 'file' },
-      { n: 'Ngay_hoan_hanh', l: 'Ngày phát hành', t: 'date', init: 'today' }
+      { n: 'File', l: 'File (comm sheet)', t: 'file' }
     ],
-    list: { group: 'Status', sort: 'Ngay_hoan_hanh', desc: true, cols: ['Rev', 'id_transmittal'], range: true }
+    list: { group: 'Status', sort: 'Ngay_hoan_hanh', desc: true, cols: ['Ngay_hoan_hanh', 'id_transmittal'], range: true },
+    badge: r => { const s = String(r.Status || '').split(':')[0].trim(); return s ? { text: 'Trạng thái ' + s, cls: OUT_ST[s] || '' } : null; }
   };
 
   T.Cong_viec_duoc_giao = {
