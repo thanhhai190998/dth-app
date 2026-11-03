@@ -910,6 +910,112 @@ a.hrow2:hover .hg { color: var(--pri); }
   .hq-g .hat small { -webkit-line-clamp: 1; }
 }
 
+/* Form: bảng con nhập nhiều dòng (vd tài liệu trong transmittal — schema inline) */
+.ilist .ihint { margin: -6px 0 0; line-height: 1.45; }
+.irows { display: grid; gap: 6px; }
+.irow { display: grid; grid-template-columns: 24px var(--icols) 34px; gap: 6px; align-items: center; }
+.irow.ihd { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 2px; }
+.irow.ihd .req { color: var(--bad); }
+[data-ilist] { display: grid; gap: 6px; }
+.irow input, .irow select { min-height: 38px; padding: 7px 9px; font-size: 14px; }
+.irow select:invalid, .irow select option[value=""] { color: var(--muted); }
+.ino { text-align: right; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.idel { width: 34px; height: 34px; color: var(--muted); }
+.idel:hover { color: var(--bad); }
+.irow.err input[data-i="0"] { border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 15%, transparent); }
+.iadd { justify-self: start; }
+@media (max-width: 640px) {   /* điện thoại: mỗi dòng thành 1 khối — Mã + nút bỏ, Tên, Rev + Mục đích */
+  .irow.ihd { display: none; }
+  [data-ilist] { gap: 0; }
+  .irow { grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1.6fr) 34px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .irow:first-child { border-top: 0; }
+  .irow > [data-i="0"] { grid-column: 2 / 4; grid-row: 1; }
+  .irow > [data-i="1"] { grid-column: 2 / 5; grid-row: 2; }
+  .irow > [data-i="2"] { grid-column: 2; grid-row: 3; }
+  .irow > [data-i="3"] { grid-column: 3 / 5; grid-row: 3; }
+  .irow .idel { grid-column: 4; grid-row: 1; }
+  .ino { grid-row: 1; align-self: center; }
+}
+
+/* Nhãn bộ lọc cột đang dùng (bấm để bỏ) */
+.xchip { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0 0 6px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 12.5px; }
+.xchip .ico { width: 13px; height: 13px; color: var(--muted); }
+.xchip:hover { border-color: var(--pri); }
+
+/* ---------- Bảng kiểu MS Access (js/grid.js) ---------- */
+.gwrap { position: relative; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--card); overscroll-behavior: contain; }
+.dt { border-collapse: separate; border-spacing: 0; table-layout: fixed; width: 100%; font-size: 13.5px; }
+.dt th, .dt td { height: 36px; padding: 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+  border-bottom: 1px solid var(--line); box-sizing: border-box; }
+.dt td { background: var(--card); color: var(--text); }
+.dt tr.odd td { background: color-mix(in srgb, var(--pri) 5%, var(--card)); }   /* tô màu xen kẽ */
+.dt tbody tr[data-k]:hover td, .gmini tbody tr:hover td { background: color-mix(in srgb, var(--pri) 13%, var(--card)); cursor: pointer; }
+.dt td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dt thead th { position: sticky; top: 0; z-index: 2; padding: 0 30px 0 10px; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  background: color-mix(in srgb, var(--pri) 10%, var(--card)); border-bottom: 1px solid color-mix(in srgb, var(--pri) 30%, var(--line)); }
+.dt th:first-child, .dt td:first-child { position: sticky; left: 0; z-index: 1; box-shadow: inset -1px 0 0 var(--line); }   /* cột đầu đứng yên khi cuộn ngang */
+.dt thead th:first-child { z-index: 3; }
+.dt tr.gsp td { height: auto; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.dt .th-l { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; height: 100%; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; cursor: pointer; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dt .th-l .ico { width: 14px; height: 14px; color: var(--pri); flex: none; }
+.dt .th-f { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px;
+  display: grid; place-items: center; background: none; color: var(--muted); opacity: .4; cursor: pointer; }
+.dt .th-f .ico { width: 14px; height: 14px; }
+.dt th:hover .th-f, .dt th.fon .th-f { opacity: 1; }
+.dt th.fon .th-f { color: var(--pri); background: color-mix(in srgb, var(--pri) 16%, transparent); }
+.dt th.fon .th-l { color: var(--pri); }
+.dt .th-r { position: absolute; right: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; touch-action: none; }
+.dt .th-r:hover { background: color-mix(in srgb, var(--pri) 35%, transparent); }
+.dt .badge { font-size: 11.5px; padding: 2px 8px; }
+.dt .gfile .ico { width: 15px; height: 15px; color: var(--pri); vertical-align: -3px; }
+.gempty { position: sticky; left: 0; padding: 28px 16px; text-align: center; color: var(--muted); }
+.gfbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 13px; }
+.gfbar > .ico { width: 15px; height: 15px; color: var(--pri); }
+.gfbar .xchip { margin: 0; }
+/* Trang có bảng: dùng hết chiều rộng màn hình (bỏ khung 1040px căn giữa); khung đếm không chui dưới thanh tìm kiếm */
+body:has(#view .gwrap) main, body:has(#view .gwrap) .foot { max-width: none; }
+body:has(#view .gwrap) main { padding-left: 16px; padding-right: 16px; padding-bottom: 8px; min-height: 0; }   /* bảng tự tính chiều cao (Grid.fit) → đáy bảng sát vạch chân trang */
+body:has(#view .gwrap) .foot { margin-top: 0; }
+@media (min-width: 1100px) { .has-drawer:has(#view .gwrap) main, .has-drawer:has(#view .gwrap) .foot { margin-left: var(--nav-w); margin-right: 0; } }
+#view .lsum { margin-top: 4px; }
+@media (max-width: 759px) { .lbar .ladd[data-cols], .lbar .ladd[data-xlsx] { display: inline-flex; padding: 0 12px; } .lbar .ladd[data-cols] span, .lbar .ladd[data-xlsx] span { display: none; } .dt { font-size: 13px; } }
+
+/* Ô lọc 1 cột (máy tính: dưới tiêu đề; điện thoại: tấm dưới đáy) */
+.gpop-bg { position: fixed; inset: 0; z-index: 72; }
+.gpop { position: fixed; z-index: 73; width: 300px; max-height: min(500px, 80vh); display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px;
+  background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 36px #0003; }
+.gpop.sheet { left: 0; right: 0; bottom: 0; width: auto; max-height: 78vh; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+@media (max-width: 639px) { .gpop-bg { background: #0006; } }
+.gp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gp-sort { display: flex; gap: 6px; }
+.gp-sort .btn { flex: 1; justify-content: center; }
+.gp-q { flex: none; }
+.gp-list { flex: 1 1 auto; min-height: 60px; max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 4px 0; }
+.gpop.sheet .gp-list { max-height: 42vh; }
+.gp-it { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13.5px; cursor: pointer; }
+.gp-it input { width: 16px; height: 16px; flex: none; margin: 0; }
+.gp-it span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-it i { font-style: normal; font-size: 12px; color: var(--muted); }
+.gp-it:hover { background: color-mix(in srgb, var(--pri) 8%, transparent); }
+.gp-it.all { border-bottom: 1px solid var(--line); font-weight: 600; }
+.gp-rng { display: grid; gap: 8px; }
+.gp-rng label { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.gp-f { display: flex; justify-content: space-between; gap: 8px; }
+
+/* Chọn cột hiển thị */
+.gcols { max-width: 460px; }
+.gcols h3 { display: flex; align-items: center; gap: 8px; }
+.gc-list { max-height: 56vh; overflow: auto; display: grid; gap: 2px; }
+.gc-it { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 8px; }
+.gc-it label { flex: 1; display: flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; font-size: 14px; }
+.gc-it.on { background: color-mix(in srgb, var(--pri) 8%, transparent); }
+
+/* Bảng nhỏ trong trang chi tiết (danh sách liên quan) */
+.gmini { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.gmini .dt thead th { padding-right: 10px; }
+
 /* =====================================================================
    GIAO DIỆN MỀM (chép từ app Phòng TCXL 0.19; main.js luôn thêm body.soft — bỏ class là về giao diện cũ). Chỉ đổi khi có .soft:
    1) hình khối: thẻ không viền, bóng mềm nhiều lớp, bo góc lớn; mép ảnh đầu trang mờ dần vào nền
@@ -947,6 +1053,12 @@ body.soft { --r: 18px; --sh-soft: 0 1px 2px rgba(15, 23, 42, .03), 0 6px 20px rg
 .soft .hact { border-color: transparent; background: color-mix(in srgb, var(--ac) 5%, var(--card)); transition: transform .22s var(--ease), box-shadow .22s var(--ease), background .2s; }
 .soft .hact:hover { transform: translateY(-2px); box-shadow: 0 6px 16px color-mix(in srgb, var(--ac) 10%, transparent); background: color-mix(in srgb, var(--ac) 9%, var(--card)); border-color: transparent; }
 .soft .hai { background: color-mix(in srgb, var(--ac) 16%, var(--card)); color: var(--ac); }
+/* Bảng dữ liệu (js/grid.js): không viền, bóng mềm; đầu bảng và kẻ nhạt hơn */
+.soft .gwrap { border-color: transparent; border-radius: 16px; box-shadow: var(--sh-soft); }
+.soft .dt th, .soft .dt td { border-bottom-color: color-mix(in srgb, var(--line) 60%, transparent); }
+.soft .dt thead th { background: color-mix(in srgb, var(--pri) 6%, var(--card)); border-bottom-color: color-mix(in srgb, var(--pri) 18%, var(--line)); }
+.soft .dt tr.odd td { background: color-mix(in srgb, var(--pri) 3%, var(--card)); }
+.soft .dt tbody tr[data-k] td { transition: background .15s; }
 /* 2) Chữ */
 .soft .kn { font-weight: 700; letter-spacing: -.01em; }
 .soft .hsec-h h2, .soft .card h3, .soft .hcard h2, .soft .hcard h3 { font-weight: 650; }

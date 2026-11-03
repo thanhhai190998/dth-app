@@ -67,7 +67,12 @@
     mute: '<path d="M11 5L6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/>',
     minus: '<path d="M5 12h14"/>',
     saved: '<path d="M7 18a5 5 0 0 1-.6-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z"/><path d="M9.5 13l2 2 3.5-4"/>',
-    upload: '<path d="M12 21V9M7 14l5-5 5 5M5 3h14"/>'
+    upload: '<path d="M12 21V9M7 14l5-5 5 5M5 3h14"/>',
+    filter: '<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
+    cols: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+    table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 10v10"/>',
+    sortup: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    sortdown: '<path d="M12 5v14M6 13l6 6 6-6"/>'
   };
   window.Icon = (name, cls) => `<svg class="ico ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || P.folder}</svg>`;
 })();

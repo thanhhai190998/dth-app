@@ -308,8 +308,9 @@
     fields: [
       { n: 'Goi_thau', l: 'Gói thầu', t: 'ref', ref: 'Danh_sach_goi_thau', req: true },
       { n: 'Transmittal_No', l: 'Số transmittal', t: 'text', req: true },
-      { n: 'Date_Incoming', l: 'Ngày nhận', t: 'date', init: 'today', req: true },
+      { n: 'Date_Incoming', l: 'Ngày nhận tài liệu', s: 'Ngày nhận', t: 'date', init: 'today', req: true },
       { n: 'Nguoi_giaoviec', l: 'Người giao việc', t: 'ref', ref: 'Danh_Ba' },
+      { n: 'Ngay_giao_viec', l: 'Ngày giao việc', t: 'date', init: 'today' },   // cột mới (03/11/2026) — phải có tiêu đề cột trên tab Cong_viec
       { n: 'Nguoi_nhan_Trans', l: 'Người nhận tài liệu', t: 'ref', ref: 'Danh_Ba' },
       // Phân công lại cho người khác → không tính hạn / trễ hạn nữa
       { n: 'Chuyen_cho', l: 'Chuyển cho (phân công lại)', t: 'ref', ref: 'Danh_Ba' },
@@ -330,8 +331,62 @@
       const n = U.daysBetween(U.today(), dl);
       return n < 0 ? { text: 'Quá ' + (-n) + ' ngày', cls: 'bad' } : { text: n === 0 ? 'Hạn hôm nay' : 'Còn ' + n + ' ngày', cls: n <= 3 ? 'warn' : 'info' };
     },
-    related: [{ t: 'Document_no_In', fk: 'id_transmittal', l: 'Tài liệu đến' }, { t: 'Document_no_Out', fk: 'id_transmittal', l: 'Tài liệu đi (trả lời)' }]
+    related: [{ t: 'Document_no_In', fk: 'id_transmittal', l: 'Tài liệu đến' }, { t: 'Document_no_Out', fk: 'id_transmittal', l: 'Tài liệu đi (trả lời)' }],
+    // Form thêm / sửa transmittal: nhập luôn các tài liệu đến (mỗi dòng 1 tài liệu, lưu vào Document_no_In);
+    // tài liệu mới lấy "Ngày nhận" = Ngày nhận tài liệu của transmittal. File đính kèm từng tài liệu: mở tài liệu ở trang transmittal.
+    inline: { t: 'Document_no_In', fk: 'id_transmittal', label: 'Tài liệu trong transmittal', unit: 'tài liệu', ic: 'inbox',
+      cols: [{ n: 'Document Number', l: 'Mã tài liệu', w: 'minmax(0, 1.65fr)' }, { n: 'Description', l: 'Tên tài liệu', w: 'minmax(0, 2fr)' },
+        { n: 'Rev', l: 'Rev.', w: '62px' }, { n: 'Purpose', l: 'Mục đích', w: '168px' }],
+      date: ['Ngay_guiDen', 'Date_Incoming'] }
   };
+
+  // Bảng ghép CHỈ ĐỂ XEM (virtual: không tải / lưu trên máy chủ): mỗi tài liệu đến 1 dòng, kèm thông tin transmittal của nó;
+  // transmittal chưa nhập tài liệu vẫn có 1 dòng. Dòng = { id, _no, _tr: dòng Cong_viec, _doc: dòng Document_no_In | null }.
+  // Danh sách Transmittal (js/transgrid.js) vẽ bảng này bằng js/grid.js; bấm dòng → trang transmittal.
+  const TR = (r, n) => r._tr[n];
+  T.TRANS_DOC = {
+    virtual: true, label: 'Transmittal', key: 'id', title: r => r._tr.Transmittal_No || '(chưa có số)',
+    fields: [
+      { n: 'STT', l: 'No', t: 'number', plain: true, w: 74, v: r => r._no },
+      { n: 'Goi_thau', l: 'Gói thầu', t: 'ref', ref: 'Danh_sach_goi_thau', w: 96, v: r => TR(r, 'Goi_thau') },
+      { n: 'Transmittal_No', l: 'Số transmittal', t: 'text', w: 128, v: r => TR(r, 'Transmittal_No') },
+      { n: 'Doc_No', l: 'Mã tài liệu', t: 'text', w: 270, v: r => r._doc ? r._doc['Document Number'] : '' },
+      { n: 'Doc_Name', l: 'Tên tài liệu', t: 'text', w: 330, v: r => r._doc ? r._doc.Description : '' },
+      { n: 'Rev', l: 'Rev.', t: 'text', w: 66, v: r => r._doc ? r._doc.Rev : '' },
+      { n: 'Date_Incoming', l: 'Ngày nhận tài liệu', t: 'date', w: 158, v: r => TR(r, 'Date_Incoming') },
+      { n: 'Nguoi_giaoviec', l: 'Người giao việc', t: 'ref', ref: 'Danh_Ba', w: 160, v: r => TR(r, 'Nguoi_giaoviec') },
+      { n: 'Ngay_giao_viec', l: 'Ngày giao việc', t: 'date', w: 142, v: r => TR(r, 'Ngay_giao_viec') },
+      { n: 'Chuyen_cho', l: 'Chuyển lại cho', t: 'ref', ref: 'Danh_Ba', w: 156, v: r => TR(r, 'Chuyen_cho') },
+      { n: 'Ngay_hoan_thanh', l: 'Ngày hoàn thành', t: 'date', w: 150, v: r => TR(r, 'Ngay_hoan_thanh') },
+      { n: 'Nguoi_nhan_Trans', l: 'Người nhận phát hành tài liệu', t: 'ref', ref: 'Danh_Ba', w: 240, v: r => TR(r, 'Nguoi_nhan_Trans') },
+      { n: 'Status', l: 'Status', t: 'enum', opts: ['Đang xử lý', 'Hoàn thành', 'Đã chuyển'], w: 112,
+        v: r => transferred(r._tr) ? 'Đã chuyển' : r._tr.Ngay_hoan_thanh ? 'Hoàn thành' : 'Đang xử lý' },
+      { n: 'Deadline', l: 'Hạn trả lời', t: 'date', w: 126, v: (r, db) => U.isoOf(deadlineOf(r._tr, db)) },
+      { n: 'Ghi_chu', l: 'Ghi chú', t: 'text', w: 240, v: r => TR(r, 'Ghi_chu') },
+      { n: 'Purpose', l: 'Mục đích', t: 'text', w: 160, v: r => r._doc ? r._doc.Purpose : '' },
+      { n: 'Doc_Date', l: 'Ngày nhận (ghi ở tài liệu)', s: 'Ngày nhận TL', t: 'date', w: 136, v: r => r._doc ? r._doc.Ngay_guiDen : '' }
+    ],
+    // Cột "Thời hạn": Còn / Quá N ngày, Đúng / Trễ hạn, Đã chuyển (như nhãn của transmittal)
+    badge: (r, db) => T.Cong_viec.badge(r._tr, db),
+    list: { badgeLabel: 'Thời hạn', countUnit: 'tài liệu',
+      tcols: ['STT', 'Goi_thau', 'Transmittal_No', 'Doc_No', 'Doc_Name', 'Rev', 'Date_Incoming', 'Nguoi_giaoviec', 'Ngay_giao_viec',
+        'Chuyen_cho', 'Ngay_hoan_thanh', 'Nguoi_nhan_Trans', 'Status', 'Deadline', '_badge', 'Ghi_chu'] }
+  };
+  // Dòng của bảng ghép: số No theo thứ tự nhận (cũ nhất = 1), như sổ theo dõi Excel — lọc / sắp xếp không đổi số
+  function transDocRows(db) {
+    const docs = new Map();
+    db.rows('Document_no_In').forEach(d => { const k = String(d.id_transmittal || ''); if (!docs.has(k)) docs.set(k, []); docs.get(k).push(d); });
+    const trs = db.rows('Cong_viec').slice().sort((a, b) => String(a.Date_Incoming || '9999').localeCompare(String(b.Date_Incoming || '9999'))
+      || String(a.Transmittal_No || '').localeCompare(String(b.Transmittal_No || ''), 'vi', { numeric: true }));
+    const out = [];
+    trs.forEach(tr => {
+      const ds = (docs.get(String(tr.id)) || []).slice().sort((a, b) => String(a['Document Number'] || '').localeCompare(String(b['Document Number'] || ''), 'vi', { numeric: true }));
+      if (!ds.length) out.push({ id: 'T|' + tr.id, _tr: tr, _doc: null });
+      ds.forEach(d => out.push({ id: 'D|' + d.id, _tr: tr, _doc: d }));
+    });
+    out.forEach((r, i) => { r._no = i + 1; });
+    return out;
+  }
 
   T.Document_no_In = {
     label: 'Tài liệu đến', key: 'id', title: r => r['Document Number'], sub: r => r.Description,
@@ -572,5 +627,5 @@
     })) } : g);
   }
 
-  window.SCHEMA = { tables: T, groups: GROUPS, groupsWithAlbums, transStatus, transPending, transferred, deadlineOf, expiryDays };
+  window.SCHEMA = { tables: T, groups: GROUPS, groupsWithAlbums, transStatus, transPending, transferred, deadlineOf, expiryDays, transDocRows };
 })();

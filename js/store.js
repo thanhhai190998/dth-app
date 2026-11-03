@@ -125,7 +125,7 @@
     // Nút ⟳: hỏi lại máy chủ mọi bảng được phép (bảng của trang đang xem trước) → số bảng có thay đổi
     async refresh() {
       this.fresh.clear(); this.queue.clear(); clearTimeout(this._qt);
-      const all = Object.keys(T()).filter(t => permTableLevel(App.user, t) > 0);
+      const all = Object.keys(T()).filter(t => !T()[t].virtual && permTableLevel(App.user, t) > 0);
       const cur = all.filter(t => this.track.has(t)), rest = all.filter(t => !this.track.has(t));
       let n = 0;
       const run = async ts => { (await this.fetch(ts, true)).forEach(x => { n += Array.isArray(x) ? x.length : 0; }); };
@@ -140,7 +140,7 @@
     // Sau khi trang đầu đã hiện: tải ngầm mọi bảng được phép → lần đầu mở mục nào cũng nhanh;
     // bảng đã mất quyền thì xoá khỏi máy
     prefetch() {
-      Object.keys(T()).forEach(t => {
+      Object.keys(T()).filter(t => !T()[t].virtual).forEach(t => {   // bảng ghép chỉ để xem (vd TRANS_DOC): không có trên máy chủ
         if (permTableLevel(App.user, t) > 0) this.later(t);
         else { IDB.del(ns() + t); delete this.data[t]; }
       });

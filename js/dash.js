@@ -270,7 +270,7 @@
     h += card('Hoàn thành 12 tháng qua', 'chart', 'var(--g4)', done.length ? columns(cfg) : none('Chưa có transmittal hoàn thành'), done.length ? '<button class="dtbl" type="button">Bảng</button>' : '');
 
     if (st.g === '*' && goiAll.length) {
-      const byG = goiAll.map(g => ({ label: g, value: pending.filter(r => r.Goi_thau === g).length, href: '#/i/Cong_viec', goi: g })).filter(x => x.value);
+      const byG = goiAll.map(g => ({ label: g, value: pending.filter(r => r.Goi_thau === g).length, href: '#/i/Cong_viec?Goi_thau=' + encodeURIComponent(g) + '&Status=' + encodeURIComponent('Đang xử lý'), goi: g })).filter(x => x.value);
       h += card('Đang xử lý theo gói', 'folder', 'var(--g4)', bars(byG));
     }
     const countBy = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r) || '(trống)'; m.set(k, (m.get(k) || 0) + 1); }); return [...m].map(([label, value]) => ({ label, value })); };
@@ -331,10 +331,4 @@
     return h;
   }
 
-  // Bấm thanh "Đang xử lý theo gói" → mở danh sách Transmittal đã lọc sẵn gói đó
-  document.addEventListener('click', e => {
-    const a = e.target.closest && e.target.closest('a.hb[data-goi]');
-    if (!a) return;
-    Views.state.Cong_viec = { q: '', f: a.dataset.goi, s: 'd-desc' };
-  });
 })();

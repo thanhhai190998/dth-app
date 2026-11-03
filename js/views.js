@@ -152,8 +152,8 @@
     const can = t => permTableLevel(App.user, t);
     const kpis = [
       // Đang làm / đã xong của transmittal và task (đếm như Dashboard công việc; transmittal đã chuyển không tính là đã xử lý)
-      { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', c: 'var(--pri)', href: '#/i/Cong_viec' },
-      { id: 'trd', ts: ['Cong_viec'], label: 'Tổng số transmittal đã xử lý', ic: 'send', c: 'var(--g3)', href: '#/i/Cong_viec' },
+      { id: 'tr', ts: ['Cong_viec'], label: 'Transmittal đang xử lý', ic: 'box', c: 'var(--pri)', href: '#/i/Cong_viec?Status=' + encodeURIComponent('Đang xử lý') },
+      { id: 'trd', ts: ['Cong_viec'], label: 'Tổng số transmittal đã xử lý', ic: 'send', c: 'var(--g3)', href: '#/i/Cong_viec?Status=' + encodeURIComponent('Hoàn thành') },
       { id: 'tk', ts: ['Cong_viec_duoc_giao'], label: 'Task đang làm', ic: 'check', c: 'var(--g1)', href: '#/i/Cong_viec_duoc_giao' },
       { id: 'tkd', ts: ['Cong_viec_duoc_giao'], label: 'Tổng số task đã xử lý', ic: 'trophy', c: 'var(--g4)', href: '#/i/Cong_viec_duoc_giao' }
     ].filter(k => k.ts.some(t => can(t) > 0));
@@ -291,6 +291,7 @@
     if (!it || !canItem(it)) return App.notFound();
     if (it.type === 'dash') return Dash.render(it);
     if (it.type === 'music') return Music.render(it);
+    if (it.table === 'Cong_viec' && window.TransGrid) return TransGrid.render(it);   // Transmittal: bảng kiểu Access, mỗi tài liệu 1 dòng
     const t = it.table, def = TT()[t], L = def.list || {};
     App.head(it.label, { back: true });
     App.loading();
@@ -865,6 +866,93 @@
     return `<div class="fld" data-f="${esc(f.n)}"><span class="lbl">${esc(f.l)}${f.req ? ' <b class="req">*</b>' : ''}</span>${input}</div>`;
   }
 
+  // ---------- Bảng con nhập nhiều dòng trong form (schema `inline`, vd tài liệu trong transmittal) ----------
+  // Mỗi dòng 1 bản ghi của bảng con: ô chữ, cột chọn (enum không "khác") là ô chọn. Dán nhiều dòng từ Excel (cột cách nhau bằng Tab)
+  // vào một ô → tự tách thành nhiều dòng, điền từ cột đó sang phải. Lưu: thêm mới / sửa dòng có thay đổi / xoá dòng đã bỏ.
+  const inlineCell = (IL, c, i, v) => {
+    const f = DB.field(IL.t, c.n) || {}, a = `data-c="${esc(c.n)}" data-i="${i}" aria-label="${esc(c.l)}"`;
+    if (f.t === 'enum' && !f.other) return `<select ${a}><option value="">${esc(c.l)}…</option>${f.opts.map(o => `<option ${String(o) === String(v ?? '') ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    return `<input type="text" ${a} placeholder="${esc(c.l)}" value="${esc(v ?? '')}" autocomplete="off">`;
+  };
+  const inlineRow = (IL, d) => `<div class="irow" data-r ${d && DB.keyOf(IL.t, d) ? `data-id="${esc(DB.keyOf(IL.t, d))}"` : ''}><span class="ino"></span>
+    ${IL.cols.map((c, i) => inlineCell(IL, c, i, d && d[c.n])).join('')}
+    <button type="button" class="ibtn3 idel" data-idel title="Bỏ dòng này" aria-label="Bỏ dòng này">${Icon('x', 'sm')}</button></div>`;
+  function inlineCard(IL, rows) {
+    return `<div class="card form ilist" style="--icols:${IL.cols.map(c => c.w || '1fr').join(' ')}">
+      <div class="fsec"><span class="gic" style="--gc:var(--pri)">${Icon(IL.ic || 'file')}</span>${esc(IL.label)}<span class="cnt" data-icnt>0</span></div>
+      <p class="muted small ihint">Mỗi dòng 1 ${esc(IL.unit)}. Có thể chép nhiều dòng từ Excel (các cột ${IL.cols.map(c => c.l).join(' · ')}) rồi dán vào ô ${esc(IL.cols[0].l)}.</p>
+      <div class="irows"><div class="irow ihd" aria-hidden="true"><span>#</span>${IL.cols.map(c => `<span>${esc(c.l)}${c === IL.cols[0] ? ' <b class="req">*</b>' : ''}</span>`).join('')}<span></span></div>
+        <div data-ilist>${(rows.length ? rows : [null]).map(d => inlineRow(IL, d)).join('')}</div></div>
+      <button type="button" class="btn ghost sm iadd" data-iadd>${Icon('plus', 'sm')}Thêm ${esc(IL.unit)}</button></div>`;
+  }
+  function inlineWire(form, IL, touch) {
+    const box = form.querySelector('[data-ilist]'), cnt = form.querySelector('[data-icnt]');
+    const renum = () => {
+      const rs = [...box.querySelectorAll('.irow')];
+      rs.forEach((el, i) => { el.querySelector('.ino').textContent = i + 1; });
+      cnt.textContent = rs.filter(el => [...el.querySelectorAll('[data-c]')].some(x => x.value.trim())).length;
+    };
+    const add = after => { const tmp = document.createElement('div'); tmp.innerHTML = inlineRow(IL, null); const el = tmp.firstElementChild;
+      if (after) after.after(el); else box.appendChild(el); renum(); return el; };
+    const setVal = (el, i, v) => {
+      const x = el.querySelector(`[data-i="${i}"]`); if (!x) return;
+      if (x.tagName === 'SELECT') {   // "FA" / "fa: for approval" → "FA: For Approval"
+        const n = U.norm(v), o = [...x.options].find(o => o.value && (U.norm(o.value) === n || U.norm(o.value.split(':')[0]) === n || U.norm(o.value).startsWith(n)));
+        x.value = o ? o.value : '';
+      } else x.value = v;
+    };
+    form.querySelector('[data-iadd]').onclick = () => { add().querySelector('[data-c]').focus(); touch(); };
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-idel]'); if (!b) return;
+      b.closest('.irow').remove(); if (!box.children.length) add(); renum(); touch();
+    });
+    box.addEventListener('input', e => { const el = e.target.closest('.irow'); if (el) { el.classList.remove('err'); el.title = ''; } renum(); });
+    box.addEventListener('change', renum);
+    // Dán nhiều dòng / nhiều cột (từ Excel) → tách thành các dòng, điền từ ô đang dán sang phải
+    box.addEventListener('paste', e => {
+      const x = e.target.closest('[data-c]'); if (!x) return;
+      const txt = (e.clipboardData || window.clipboardData).getData('text') || '';
+      if (!/[\t\n]/.test(txt.replace(/\r?\n$/, ''))) return;   // dán 1 ô bình thường
+      e.preventDefault();
+      const lines = txt.replace(/\r/g, '').split('\n').filter(l => l.trim());
+      let el = x.closest('.irow'); const i0 = +x.dataset.i;
+      lines.forEach((ln, j) => {
+        if (j > 0) { const nx = el.nextElementSibling; el = nx && ![...nx.querySelectorAll('[data-c]')].some(y => y.value.trim()) ? nx : add(el); }
+        ln.split('\t').forEach((v, m) => setVal(el, i0 + m, v.trim()));
+      });
+      renum(); touch();
+      U.toast(`Đã dán ${lines.length} dòng`, 'ok');
+    });
+    renum();
+  }
+  // Dòng đang nhập (bỏ dòng trống): { el, no, id, v: { cột: giá trị } }
+  const inlineRows = (form, IL) => [...form.querySelectorAll('[data-ilist] .irow')].map((el, i) => ({
+    el, no: i + 1, id: el.dataset.id || '', v: Object.fromEntries(IL.cols.map(c => [c.n, el.querySelector(`[data-c="${CSS.escape(c.n)}"]`).value.trim()]))
+  })).filter(x => Object.values(x.v).some(Boolean));
+  async function inlineSave(IL, k, out, iRows, iOld, iDel, btn) {
+    const kf = DB.keyField(IL.t), n = iRows.length + iDel.length;
+    let i = 0;
+    const step = () => { btn.textContent = `Đang lưu ${IL.unit} ${++i}/${n}…`; };
+    try {
+      for (const x of iRows) {
+        const cur = x.id && iOld.find(o => String(o[kf]) === x.id);
+        if (cur) {
+          step();
+          if (IL.cols.some(c => String(cur[c.n] ?? '') !== x.v[c.n])) { const s = await DB.update(IL.t, { ...cur, ...x.v }); Object.assign(cur, s); }
+        } else {
+          step();
+          const row = { [kf]: U.uid(), [IL.fk]: k, ...x.v };
+          if (IL.date) row[IL.date[0]] = out[IL.date[1]] || U.today();
+          const s = await DB.add(IL.t, row);
+          iOld.push(s); x.id = String(s[kf]); x.el.dataset.id = x.id;   // lỗi ở dòng sau → bấm Lưu lại không thêm trùng
+        }
+      }
+      for (const o of iDel) { step(); await DB.remove(IL.t, o[kf]); iOld.splice(iOld.indexOf(o), 1); }
+    } catch (e) {
+      throw new Error(`Đã lưu thông tin chính nhưng chưa lưu xong ${IL.unit} (${e.message}) — bấm Lưu để thử lại`);
+    }
+  }
+
   V.form = async (t, key, params) => {
     const def = TT()[t];
     if (!def) return App.notFound();
@@ -884,6 +972,10 @@
     const main = fields.filter(f => f.t !== 'image' && f.t !== 'file');
     const att = fields.filter(f => f.t === 'image' || f.t === 'file');
     const meta = metaOf(t);
+    // Bảng con nhập ngay trong form (vd transmittal → nhiều tài liệu đến): chỉ khi được sửa bảng con
+    const IL = def.inline && (App.user.admin || tableLv(def.inline.t) === 2) ? def.inline : null;
+    let iOld = [];
+    if (IL) { await DB.loadDeps(IL.t).catch(() => {}); iOld = isNew ? [] : DB.rows(IL.t).filter(x => String(x[IL.fk]) === String(key)); }
     // Cột mới chưa thêm vào Google Sheet → máy chủ bỏ qua giá trị (mất khi tải lại) → báo trước
     const have = DB.rows(t);
     const noCol = window.APP_CONFIG.mode === 'live' && have.length ? fields.filter(f => have.every(x => !(f.n in x))) : [];
@@ -893,6 +985,7 @@
         ${noCol.map(f => `<b>${esc(f.n)}</b>`).join(', ')} — ${esc(noCol.map(f => f.l).join(', '))} sẽ không được lưu.
         Thêm tên cột đó vào hàng tiêu đề (hàng 1) của tab rồi tải lại app.</span></div>` : ''}
       <div class="card form">${main.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>
+      ${IL ? inlineCard(IL, iOld) : ''}
       ${att.length ? `<div class="card form"><div class="fsec"><span class="gic" style="--gc:${meta.color}">${Icon('file')}</span>Đính kèm</div>
         ${att.map(f => fieldInput(t, f, r, isNew, def)).join('')}</div>` : ''}
       <div class="fbar"><button type="button" class="btn ghost" data-cancel>Huỷ</button><button class="btn" type="submit">${Icon('check')} Lưu</button></div></form>`;
@@ -953,6 +1046,8 @@
       if (!box.querySelector('.ferr')) box.insertAdjacentHTML('beforeend', `<small class="ferr">${esc(msg)}</small>`);
     };
     form.addEventListener('input', e => { const b = e.target.closest('.fld'); if (b) b.classList.remove('err'); });
+    if (IL) inlineWire(form, IL, () => { dirty = true; });
+    let savedKey = null;   // bản ghi chính đã lưu xong (bảng con lỗi giữa chừng) → bấm Lưu lại chỉ cập nhật, không tạo trùng
 
     form.onsubmit = async e => {
       e.preventDefault();
@@ -989,7 +1084,25 @@
         q('.fld.err')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return U.toast('Còn ' + missing.length + ' mục bắt buộc chưa nhập', 'err');
       }
-      const k = isNew ? (def.keyEditable ? out[def.key] : U.uid()) : key;
+      // Bảng con: dòng trống bỏ qua; dòng thiếu cột đầu (vd Mã tài liệu) hoặc trùng nhau → báo, không lưu
+      const iRows = IL ? inlineRows(form, IL) : [];
+      if (IL) {
+        const c0 = IL.cols[0], seen = new Map(), bad = [];
+        iRows.forEach(x => {
+          const k0 = U.norm(x.v[c0.n]);
+          if (!k0) bad.push([x, 'Thiếu ' + c0.l.toLowerCase()]);
+          else if (seen.has(k0)) bad.push([x, 'Trùng ' + c0.l.toLowerCase() + ' với dòng ' + seen.get(k0)]);
+          else seen.set(k0, x.no);
+        });
+        if (bad.length) {
+          bad.forEach(([x, m]) => { x.el.classList.add('err'); x.el.title = m; });
+          bad[0][0].el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return U.toast(`Dòng ${bad[0][0].no}: ${bad[0][1]}`, 'err');
+        }
+      }
+      const iDel = IL ? iOld.filter(o => !iRows.some(x => x.id && x.id === String(DB.keyOf(IL.t, o)))) : [];
+      if (iDel.length && !(await U.confirm(`Xoá ${iDel.length} ${IL.unit} đã bỏ khỏi danh sách (${iDel.map(o => o[IL.cols[0].n]).filter(Boolean).slice(0, 3).join(', ')}${iDel.length > 3 ? '…' : ''})?`))) return;
+      const k = savedKey || (isNew ? (def.keyEditable ? out[def.key] : U.uid()) : key);
       out[def.key] = k;
 
       const btn = q('button[type=submit]');
@@ -1013,7 +1126,9 @@
           btn.textContent = 'Đang tải ' + f.l.toLowerCase() + '…';
           out[f.n] = await API.upload(t, f.n, name, du);
         }
-        if (isNew) await DB.add(t, out); else await DB.update(t, out);
+        if (isNew && !savedKey) await DB.add(t, out); else await DB.update(t, out);
+        savedKey = k;
+        if (IL) await inlineSave(IL, k, out, iRows, iOld, iDel, btn);
         Files.forget(t, k);
         dirty = false;
         U.toast('Đã lưu', 'ok');

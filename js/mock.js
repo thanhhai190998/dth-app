@@ -83,17 +83,20 @@
         { id: db.c, HoTen: 'Phạm Văn C (demo)', ChucVu: 'Văn thư', VaiTro: 'Nhận tài liệu', SDT: '0900000013', DiaChi: '', Note: '' }
       ],
       Cong_viec: [
-        { id: tr[0], Goi_thau: 'T22', Transmittal_No: 'T-0101 (demo)', Date_Incoming: day(-40), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-30) },
-        { id: tr[1], Goi_thau: 'T22', Transmittal_No: 'T-0102 (demo)', Date_Incoming: day(-35), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-15) },
-        { id: tr[2], Goi_thau: 'T23', Transmittal_No: 'T-0201 (demo)', Date_Incoming: day(-20), Nguoi_giaoviec: db.b, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
-        { id: tr[3], Goi_thau: 'T23', Transmittal_No: 'T-0202 (demo)', Date_Incoming: day(-6), Nguoi_giaoviec: db.b, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
+        { id: tr[0], Goi_thau: 'T22', Transmittal_No: 'T-0101 (demo)', Date_Incoming: day(-40), Nguoi_giaoviec: db.a, Ngay_giao_viec: day(-39), Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-30) },
+        { id: tr[1], Goi_thau: 'T22', Transmittal_No: 'T-0102 (demo)', Date_Incoming: day(-35), Nguoi_giaoviec: db.a, Ngay_giao_viec: day(-33), Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-15) },
+        { id: tr[2], Goi_thau: 'T23', Transmittal_No: 'T-0201 (demo)', Date_Incoming: day(-20), Nguoi_giaoviec: db.b, Ngay_giao_viec: day(-18), Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
+        { id: tr[3], Goi_thau: 'T23', Transmittal_No: 'T-0202 (demo)', Date_Incoming: day(-6), Nguoi_giaoviec: db.b, Ngay_giao_viec: day(-5), Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: '' },
         { id: tr[4], Goi_thau: 'T19', Transmittal_No: 'T-0301 (demo)', Date_Incoming: day(-20), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Chuyen_cho: db.b, Ngay_hoan_thanh: '', Ghi_chu: 'Trưởng phòng phân công lại cho chị B (demo)' },
         { id: tr[5], Goi_thau: 'T19', Transmittal_No: 'T-0300 (demo)', Date_Incoming: day(-75), Nguoi_giaoviec: db.a, Nguoi_nhan_Trans: db.c, Ngay_hoan_thanh: day(-64) }
       ],
       Document_no_In: [
         { id: id(), id_transmittal: tr[0], 'Document Number': 'LP1-T22-DAL-0001 (demo)', Description: 'Danh sách phụ tải (demo)', Rev: 'B', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-40) },
+        { id: id(), id_transmittal: tr[0], 'Document Number': 'LP1-T22-DWD-0006 (demo)', Description: 'Sơ đồ đấu dây chiếu sáng (demo)', Rev: 'B', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-40) },
         { id: id(), id_transmittal: tr[1], 'Document Number': 'LP1-T22-CAL-0002 (demo)', Description: 'Tính toán cáp (demo)', Rev: 'A', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-35) },
         { id: id(), id_transmittal: tr[2], 'Document Number': 'LP1-T23-SLD-0003 (demo)', Description: 'Sơ đồ một sợi (demo)', Rev: 'C', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-20) },
+        { id: id(), id_transmittal: tr[2], 'Document Number': 'LP1-T23-DAS-0007 (demo)', Description: 'Datasheet cáp động lực (demo)', Rev: 'A', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-20) },
+        { id: id(), id_transmittal: tr[2], 'Document Number': 'LP1-T23-LST-0008 (demo)', Description: 'Danh sách cáp (demo)', Rev: 'A', Purpose: 'FA: For Approval', File: '', Ngay_guiDen: day(-20) },
         { id: id(), id_transmittal: tr[3], 'Document Number': 'LP1-T23-ITP-0004 (demo)', Description: 'ITP lắp đặt cáp (demo)', Rev: 'A', Purpose: 'FR: For Reference', File: '', Ngay_guiDen: day(-6) },
         { id: id(), id_transmittal: tr[4], 'Document Number': 'LP1-T19-SPC-0005 (demo)', Description: 'Spec động cơ (demo)', Rev: '0', Purpose: 'FI : For Information', File: '', Ngay_guiDen: day(-12) }
       ],

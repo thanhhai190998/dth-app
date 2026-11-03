@@ -38,6 +38,7 @@
   U.num = v => { if (v === '' || v == null) return 0; const n = typeof v === 'number' ? v : Number(String(v).replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; };
   U.money = v => new Intl.NumberFormat('vi-VN').format(Math.round(U.num(v))) + ' ₫';
   U.int = v => new Intl.NumberFormat('vi-VN').format(U.num(v));
+  U.splitList = s => String(s ?? '').split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean);   // "A, B; C" → ['A', 'B', 'C']
 
   U.norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
   // Tìm kiếm dễ dãi: không dấu, không phân biệt hoa/thường, bỏ qua dấu cách / gạch nối / chấm ("0441" khớp "T-0441",
