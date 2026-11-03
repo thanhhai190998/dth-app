@@ -97,6 +97,14 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
   background: linear-gradient(180deg, rgba(8, 20, 52, .45), rgba(8, 20, 52, 0)); }
 #hero:has(.hero-img) .hero-in.with-kpi { padding-bottom: 72px; }
 .hsub { margin: -10px 0 0; font-size: 14.5px; opacity: .92; max-width: 560px; }
+/* Trang chủ: chọn khoảng thời gian trên nền ảnh (ô trong suốt chữ trắng) */
+.hrange { margin-top: 12px; }
+.hrange .tsel { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .32); color: #fff; }
+.hrange .tsel .ico { color: #fff; }
+.hrange .tsel select { color: #fff; }
+.hrange .tsel select option { color: var(--text); background: var(--card); }
+.hrange .trng { color: rgba(255, 255, 255, .85); }
+.hrg { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; color: var(--pri); background: color-mix(in srgb, var(--pri) 12%, transparent); }
 @media (max-width: 759px) {   /* điện thoại: ảnh phủ cả khung, lớp màu bên trái cho chữ dễ đọc */
   .hero-img { width: 100%; -webkit-mask-image: none; mask-image: none;
     background: linear-gradient(90deg, rgba(0, 96, 190, .9) 0%, rgba(60, 64, 170, .62) 55%, rgba(30, 40, 110, .2) 100%), url(../img/hero-nha-may.webp) 74% 64% / cover; }
@@ -621,6 +629,13 @@ input.sw:checked::after { transform: translateX(18px); }
 .dfilter { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .dfilter::-webkit-scrollbar { display: none; }
 .kpi-row.k4 { margin: 0 0 12px; }
+/* Dashboard: hàng lọc gói + chọn khoảng thời gian */
+.dbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 0 12px; }
+.dbar .dfilter { padding: 2px 0; min-width: 0; }
+.rgbox { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kpi-row.k5 { margin: 0 0 12px; grid-template-columns: repeat(5, minmax(0, 1fr)); }   /* Dashboard công việc: hàng transmittal 5 ô */
+@media (max-width: 900px) { .kpi-row.k5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .kpi-row.k5 { grid-template-columns: 1fr 1fr; } }
 .kcard .kn { font-variant-numeric: normal; white-space: nowrap; }
 .kn small { font-size: 14px; font-weight: 700; color: var(--muted); margin-left: 1px; }
 .kd { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
@@ -670,7 +685,7 @@ a.hb:hover { background: var(--hover); }
 .dnone .ico { color: var(--ok); }
 .dok { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; color: var(--muted); font-size: 13.5px; }
 .dok .ico { color: var(--ok); }
-@media (min-width: 900px) { .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; } .dash > .dhero2, .dash > .dfilter, .dash > .kpi-row { grid-column: 1 / -1; } }
+@media (min-width: 900px) { .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; } .dash > .dhero2, .dash > .dfilter, .dash > .dbar, .dash > .kpi-row { grid-column: 1 / -1; } }
 
 /* ---- Khác ---- */
 .empty { text-align: center; color: var(--muted); padding: 30px 12px; }

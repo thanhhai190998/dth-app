@@ -172,6 +172,7 @@
       App.main.querySelectorAll('.dfilter').forEach(f => f.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
         st[f.dataset.fk] = b.dataset.v; paint();
       }));
+      if (st.rg) Views.rangeWire(App.main, st.rg, paint);   // ô chọn khoảng thời gian (Dashboard công việc)
       Views.hydrate(App.main);
     };
     await paint();
@@ -225,36 +226,49 @@
     await load(['Cong_viec', 'Document_no_In', 'Document_no_Out', 'Cong_viec_duoc_giao', 'Kiem_tra_hang']);
     const goiAll = [...new Set(DB.rows('Cong_viec').map(r => r.Goi_thau).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi', { numeric: true }));
     st.g = st.g && (st.g === '*' || goiAll.includes(st.g)) ? st.g : '*';
+    // Khoảng thời gian: transmittal theo ngày nhận tài liệu, vật tư theo ngày thực hiện, task theo ngày giao
+    st.rg = st.rg || { p: 'all', from: '', to: '' };
+    const inR = v => Views.inRange(st.rg, v), allTime = st.rg.p === 'all';
     const inG = r => st.g === '*' || r.Goi_thau === st.g;
-    const tr = DB.rows('Cong_viec').filter(inG), stt = r => SCHEMA.transStatus(r, DB);
+    const tr = DB.rows('Cong_viec').filter(inG).filter(r => inR(r.Date_Incoming)), stt = r => SCHEMA.transStatus(r, DB);
     const pending = tr.filter(SCHEMA.transPending);   // transmittal đã chuyển cho người khác không tính hạn
     const over = pending.filter(r => stt(r) === 'Quá hạn');
     const last12 = monthsBack(12);
     const done = tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r) && last12.includes(U.month(r.Ngay_hoan_thanh)));
-    const ontime = done.filter(r => stt(r) === 'Đúng hạn').length;
-    const days = done.map(r => U.daysBetween(r.Date_Incoming, r.Ngay_hoan_thanh)).filter(n => n != null && !isNaN(n));
+    // Tỷ lệ đúng hạn / thời gian xử lý: mọi thời gian → 12 tháng gần nhất (như trước); chọn khoảng → các transmittal trong khoảng
+    const doneK = allTime ? done : tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r));
+    const ontime = doneK.filter(r => stt(r) === 'Đúng hạn').length;
+    const days = doneK.map(r => U.daysBetween(r.Date_Incoming, r.Ngay_hoan_thanh)).filter(n => n != null && !isNaN(n));
     const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : null;
     const trIds = new Set(tr.map(r => String(r.id)));
-    const kt = DB.rows('Kiem_tra_hang').filter(inG);
+    const kt = DB.rows('Kiem_tra_hang').filter(inG).filter(r => inR(r.Ngay_thuc_hien));
     const vt = kt.filter(r => !r.Ngay_hoan_thanh), vtDone = kt.filter(r => r.Ngay_hoan_thanh);
-    const tk = DB.rows('Cong_viec_duoc_giao');
+    const tk = DB.rows('Cong_viec_duoc_giao').filter(r => inR(r.Ngay_giao));
     const tasks = tk.filter(r => r.Trang_thai === 'Đang xử lý');
     const tasksDone = tk.filter(r => r.Trang_thai !== 'Đang xử lý' && (r.Trang_thai || r.Ngay_hoan_thanh));   // "Đã xử lý" hoặc trạng thái tự ghi khác
 
-    let h = goiAll.length > 1 ? filterRow('g', [{ v: '*', l: 'Tất cả gói' }, ...goiAll.map(g => ({ v: g, l: g }))], st.g) : '';
-    const tiles = [
-      { ic: 'box', l: 'Transmittal đang xử lý', v: nf(pending.length, 0), href: '#/i/Cong_viec' },
+    let h = `<div class="dbar">${goiAll.length > 1 ? filterRow('g', [{ v: '*', l: 'Tất cả gói' }, ...goiAll.map(g => ({ v: g, l: g }))], st.g) : ''}
+      ${Views.rangeBox(st.rg, 'Lọc theo ngày nhận tài liệu (transmittal), ngày thực hiện (vật tư), ngày giao (task)')}</div>`;
+    // Bảng Transmittal lọc sẵn theo Status (+ gói đang chọn)
+    const trHref = s => '#/i/Cong_viec?Status=' + encodeURIComponent(s) + (st.g === '*' ? '' : '&Goi_thau=' + encodeURIComponent(st.g));
+    const trDone = tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r));   // mọi thời gian; đã chuyển cho người khác không tính
+    // Hàng 1: transmittal (5 ô) · hàng 2: vật tư + task
+    const trTiles = [
+      { ic: 'box', l: 'Transmittal đang xử lý', v: nf(pending.length, 0), href: trHref('Đang xử lý') },
+      { ic: 'trophy', l: 'Transmittal đã thực hiện', v: nf(trDone.length, 0), href: trHref('Hoàn thành'), delta: tr.length ? { t: 'trên tổng ' + nf(tr.length, 0) + ' transmittal', cls: '' } : null },
       { ic: 'alert', l: 'Quá hạn trả lời', v: nf(over.length, 0), cls: over.length ? 'warn' : 'good' },
-      { ic: 'check', l: 'Tỷ lệ đúng hạn (12 tháng)', v: done.length ? pct(ontime / done.length * 100) : '—', delta: done.length ? { t: ontime + '/' + done.length + ' transmittal', cls: '' } : null },
+      { ic: 'check', l: 'Tỷ lệ đúng hạn' + (allTime ? ' (12 tháng)' : ''), v: doneK.length ? pct(ontime / doneK.length * 100) : '—', delta: doneK.length ? { t: ontime + '/' + doneK.length + ' transmittal', cls: '' } : null },
       { ic: 'clock', l: 'Thời gian xử lý trung bình', v: avg == null ? '—' : nf(avg, 1), u: avg == null ? '' : ' ngày' }
     ];
+    const tiles = [];
     if (can('Kiem_tra_hang')) tiles.push(
       { ic: 'inspect', l: 'Vật tư chưa xong', v: nf(vt.length, 0), href: '#/i/Kiem_tra_hang' },
       { ic: 'trophy', l: 'Vật tư đã xong', v: nf(vtDone.length, 0), href: '#/i/Kiem_tra_hang', delta: kt.length ? { t: 'trên tổng ' + nf(kt.length, 0) + ' lần kiểm tra', cls: '' } : null });
     if (st.g === '*' && can('Cong_viec_duoc_giao')) tiles.push(
       { ic: 'check', l: 'Task đang làm', v: nf(tasks.length, 0), href: '#/i/Cong_viec_duoc_giao' },
       { ic: 'trophy', l: 'Task đã thực hiện', v: nf(tasksDone.length, 0), href: '#/i/Cong_viec_duoc_giao', delta: tk.length ? { t: 'trên tổng ' + nf(tk.length, 0) + ' task', cls: '' } : null });
-    h += `<div class="kpi-row k4">${tiles.map(tile).join('')}</div>`;
+    h += `<div class="kpi-row k5">${trTiles.map(tile).join('')}</div>`;
+    if (tiles.length) h += `<div class="kpi-row k4">${tiles.map(tile).join('')}</div>`;
 
     const left = r => U.daysBetween(U.today(), DB.val('Cong_viec', r, 'Deadline'));
     const waiting = pending.slice().sort((a, b) => left(a) - left(b));
@@ -276,11 +290,11 @@
     const countBy = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r) || '(trống)'; m.set(k, (m.get(k) || 0) + 1); }); return [...m].map(([label, value]) => ({ label, value })); };
     const order = (rows, opts) => rows.sort((a, b) => (opts.indexOf(a.label) + 1 || 99) - (opts.indexOf(b.label) + 1 || 99));
     if (can('Document_no_In')) {
-      const din = DB.rows('Document_no_In').filter(r => st.g === '*' || trIds.has(String(r.id_transmittal)));
+      const din = DB.rows('Document_no_In').filter(r => (st.g === '*' && allTime) || trIds.has(String(r.id_transmittal)));
       h += card('Tài liệu đến theo mục đích', 'inbox', 'var(--g4)', bars(order(countBy(din, r => r.Purpose), DB.field('Document_no_In', 'Purpose').opts), { share: true }));
     }
     if (can('Document_no_Out')) {
-      const dout = DB.rows('Document_no_Out').filter(r => st.g === '*' || trIds.has(String(r.id_transmittal)));
+      const dout = DB.rows('Document_no_Out').filter(r => (st.g === '*' && allTime) || trIds.has(String(r.id_transmittal)));
       h += card('Tài liệu đi theo status', 'send', 'var(--g4)', bars(order(countBy(dout, r => r.Status), DB.field('Document_no_Out', 'Status').opts), { share: true }));
     }
     return h;

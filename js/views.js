@@ -169,6 +169,9 @@
     const remTs = [...DOCS, ...['Calendar', 'GIAODICH_VAY_MUON', 'Cong_viec_duoc_giao'].filter(t => can(t) > 0)];
     const trOk = can('Cong_viec') > 0;
     const warnIt = V.findItem('DASH_CANHBAO');
+    // Khoảng thời gian (nhớ trong phiên): transmittal theo ngày nhận tài liệu, task theo ngày giao; Nhắc việc không lọc
+    const hst = (V.state._home = V.state._home || { rg: { p: 'all', from: '', to: '' } }), rg = hst.rg;
+    const inR = v => V.inRange(rg, v), rgTxt = V.rangeText(rg);
 
     const g = greeting();
     // Ảnh nhà máy bên phải, mờ dần vào nền màu (css .hero-img); thanh tiêu đề trong suốt phía trên ảnh (main.js App.topTint)
@@ -176,7 +179,9 @@
       <div class="hday">${esc(g.day)}</div>
       <h1 class="hhello">${esc(g.hello)}, ${esc(g.name)}</h1>
       <p class="hsub">Transmittal, công việc được giao, tài chính và hồ sơ cá nhân</p>
+      ${kpis.length || trOk ? `<div class="hrange">${V.rangeBox(rg, 'Lọc số liệu: transmittal theo ngày nhận tài liệu, task theo ngày giao')}</div>` : ''}
     </div>`);
+    V.rangeWire(document.getElementById('hero'), rg, () => V.home());
 
     let html = '';
     if (kpis.length) html += `<div class="kpi-row home">${kpis.map(k => `<a class="kcard" href="${k.href}" data-k="${k.id}" style="--kc:${k.c}">
@@ -185,7 +190,7 @@
     else {
       // Thẻ cuối mỗi cột kéo dài, các dòng giãn đều → đáy 2 cột luôn bằng nhau (css .hcols)
       const L = [], R = [];
-      if (trOk) L.push(`<section class="card hcard"><div class="hch"><h2>${Icon('box', 'sm')} Transmittal</h2><span class="muted small" id="htrn"></span>
+      if (trOk) L.push(`<section class="card hcard"><div class="hch"><h2>${Icon('box', 'sm')} Transmittal</h2><span class="muted small" id="htrn"></span>${rgTxt ? `<span class="hrg">${esc(rgTxt)}</span>` : ''}
         <a class="small hmore" href="#/i/Cong_viec">Xem tất cả →</a></div>
         <div class="hlist" id="htr"><span class="skel"></span></div></section>`);
       if (acts.length) R.push(`<section class="card hcard hq"><div class="hch"><h2>${Icon('plus', 'sm')} Thao tác nhanh</h2></div>
@@ -206,7 +211,8 @@
     const C = window.APP_CONFIG, today = U.today(), left = d => U.daysBetween(today, d);
     // Ô số liệu: đếm lên khi vừa mở trang
     const set = (id, n) => { const card = App.main.querySelector(`[data-k="${id}"]`); if (card) App.countTo(card.querySelector('.kn'), n, id); };
-    const tr = DB.rows('Cong_viec'), pending = tr.filter(SCHEMA.transPending), tk = DB.rows('Cong_viec_duoc_giao');
+    const tr = DB.rows('Cong_viec').filter(r => inR(r.Date_Incoming)), pending = tr.filter(SCHEMA.transPending);
+    const tk = DB.rows('Cong_viec_duoc_giao').filter(r => inR(r.Ngay_giao));
     set('tr', pending.length);
     set('trd', tr.filter(r => r.Ngay_hoan_thanh && !SCHEMA.transferred(r)).length);
     set('tk', tk.filter(r => r.Trang_thai === 'Đang xử lý').length);
@@ -229,7 +235,7 @@
             <span class="hs hin">${esc(U.fmtDate(r.Date_Incoming))}</span><span class="hs hdl">${esc(U.fmtDate(DB.val('Cong_viec', r, 'Deadline')))}</span>
             <span class="hn">${V.badgeHtml(b)}</span></a>`; }).join('')
           + (rows.length > m ? `<div class="muted small hrest">+ ${U.int(rows.length - m)} transmittal khác — <a href="#/i/Cong_viec">xem danh sách</a></div>` : '')
-        : '<div class="muted small hrest">Chưa có transmittal nào</div>'; };
+        : `<div class="muted small hrest">${rgTxt ? 'Không có transmittal nào nhận trong ' + esc(rgTxt) : 'Chưa có transmittal nào'}</div>`; };
     }
 
     if (rl) {
@@ -422,24 +428,14 @@
         <button type="button" class="btn ghost ladd" data-xlsx title="Xuất Excel các dòng đang hiện (theo bộ lọc)">${Icon('download')}<span>Xuất Excel</span></button>
         ${canAdd ? `<a class="btn ladd" href="${addHref}">${Icon('plus')}<span>Thêm</span></a>` : ''}
       </div>
-      ${dateF ? `<div class="lfil">
-        <label class="tsel" title="Lọc theo ${esc(dateF.l.toLowerCase())}">${Icon('calendar')}<select id="tsel" aria-label="Khoảng thời gian">
-          ${RANGES.map(([v, l]) => `<option value="${v}" ${v === st.rg.p ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
-        <span class="trng" id="trng" ${st.rg.p === 'custom' ? '' : 'hidden'}>
-          ${V.dateInput('id="tfrom"', st.rg.from, { label: 'Từ ngày' })}<span>→</span>${V.dateInput('id="tto"', st.rg.to, { label: 'Đến ngày' })}</span>
-      </div>` : ''}
+      ${dateF ? `<div class="lfil">${V.rangeBox(st.rg, 'Lọc theo ' + dateF.l.toLowerCase())}</div>` : ''}
       <div class="lsum" id="lsum"></div><div class="gfbar" id="gfbar" hidden></div>
       <div class="gwrap" id="grid"></div>
       ${canAdd ? `<a class="fab" href="${addHref}" title="Thêm mới" style="--gc:${it.color || 'var(--pri)'}">${Icon('plus')}</a>` : ''}`;
     App.main.classList.toggle('has-fab', canAdd);
 
     // Lọc thời gian: dòng không có ngày bị loại khi đang chọn 1 khoảng
-    const inRange = r => {
-      if (!dateF) return true;
-      const [a, b] = V.rangeOf(st.rg); if (!a && !b) return true;
-      const v = U.isoOf(DB.val(t, r, L.sort)); if (!v) return false;
-      return (!a || v >= a) && (!b || v <= b);
-    };
+    const inRange = r => !dateF || V.inRange(st.rg, DB.val(t, r, L.sort));
     // Dòng tổng: số dòng + tổng cột cộng (Thu chi: thu · chi · chênh lệch) + khoảng thời gian / chữ đang tìm
     const drawSum = rows => {
       const [a, b] = V.rangeOf(st.rg), on = a || b;
@@ -488,20 +484,7 @@
       catch (er) { U.toast(er.message, 'err'); }
       finally { b.disabled = false; b.innerHTML = html; }
     };
-    if (dateF) {
-      V.dates(App.main);
-      const sel = document.getElementById('tsel'), rng = document.getElementById('trng'), fr = document.getElementById('tfrom'), to = document.getElementById('tto');
-      sel.onchange = () => {
-        st.rg.p = sel.value; st.top = 0;
-        if (sel.value === 'custom' && !st.rg.from && !st.rg.to) {   // gợi ý sẵn: đầu tháng này → hôm nay
-          const d = new Date(); st.rg.from = fr.value = U.iso(new Date(d.getFullYear(), d.getMonth(), 1)); st.rg.to = to.value = U.today();
-          fr._sync(); to._sync();
-        }
-        rng.hidden = sel.value !== 'custom';
-        draw();
-      };
-      fr.onchange = to.onchange = () => { st.rg.from = fr.value; st.rg.to = to.value; st.top = 0; draw(); };
-    }
+    V.rangeWire(App.main, st.rg, () => { st.top = 0; draw(); });
     draw();
   };
 
@@ -513,9 +496,41 @@
     return U.int(v) + (L.unit && !short ? ' ' + L.unit : '');
   };
 
-  // Bộ lọc thời gian (list.range) theo cột ngày dùng để sắp xếp
+  // Bộ lọc thời gian (danh sách list.range, Dashboard công việc, trang chủ)
   const RANGES = [['all', 'Mọi thời gian'], ['m0', 'Tháng này'], ['m1', 'Tháng trước'], ['q0', 'Quý này'], ['m3', '3 tháng gần đây'],
-    ['y0', 'Năm nay'], ['y1', 'Năm trước'], ['custom', 'Chọn từ ngày… đến ngày…']];
+    ['m12', '12 tháng gần đây'], ['y0', 'Năm nay'], ['y1', 'Năm trước'], ['custom', 'Chọn từ ngày… đến ngày…']];
+  // Ô chọn khoảng thời gian dùng chung: V.rangeBox(rg) → HTML (ô chọn + 2 ô ngày khi "Chọn từ ngày…"), V.rangeWire(root, rg, onChange)
+  // gắn sự kiện; rg = { p, from, to } (yyyy-mm-dd) được sửa trực tiếp. V.inRange(rg, ngày) → ngày có nằm trong khoảng không
+  // (đang chọn 1 khoảng thì dòng không có ngày bị loại).
+  V.rangeBox = (rg, title) => `<span class="rgbox"><label class="tsel" title="${esc(title || 'Khoảng thời gian')}">${Icon('calendar')}<select data-rg aria-label="Khoảng thời gian">
+      ${RANGES.map(([v, l]) => `<option value="${v}" ${v === rg.p ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+    <span class="trng" data-rgc ${rg.p === 'custom' ? '' : 'hidden'}>
+      ${V.dateInput('data-rgf', rg.from, { label: 'Từ ngày' })}<span>→</span>${V.dateInput('data-rgt', rg.to, { label: 'Đến ngày' })}</span></span>`;
+  V.rangeWire = (root, rg, onChange) => {
+    const box = root.querySelector('.rgbox'); if (!box) return;
+    V.dates(box);
+    const sel = box.querySelector('[data-rg]'), rng = box.querySelector('[data-rgc]'), fr = box.querySelector('[data-rgf]'), to = box.querySelector('[data-rgt]');
+    sel.onchange = () => {
+      rg.p = sel.value;
+      if (sel.value === 'custom' && !rg.from && !rg.to) {   // gợi ý sẵn: đầu tháng này → hôm nay
+        const d = new Date(); rg.from = fr.value = U.iso(new Date(d.getFullYear(), d.getMonth(), 1)); rg.to = to.value = U.today();
+        fr._sync(); to._sync();
+      }
+      rng.hidden = sel.value !== 'custom';
+      onChange();
+    };
+    fr.onchange = to.onchange = () => { rg.from = fr.value; rg.to = to.value; onChange(); };
+  };
+  V.inRange = (rg, v) => {
+    const [a, b] = V.rangeOf(rg); if (!a && !b) return true;
+    const d = U.isoOf(v); return !!d && (!a || d >= a) && (!b || d <= b);
+  };
+  V.rangeText = rg => {   // "tháng này" / "01/10/2026 → 31/10/2026" (để ghi chú số liệu đang lọc)
+    if (!rg || rg.p === 'all') return '';
+    if (rg.p !== 'custom') return (RANGES.find(x => x[0] === rg.p) || ['', ''])[1].toLowerCase();
+    const [a, b] = V.rangeOf(rg);
+    return a && b ? `${U.fmtDate(a)} → ${U.fmtDate(b)}` : a ? 'từ ' + U.fmtDate(a) : b ? 'đến ' + U.fmtDate(b) : '';
+  };
   V.rangeOf = rg => {   // → [từ, đến] dạng yyyy-mm-dd ('' = không giới hạn)
     const d = new Date(), y = d.getFullYear(), m = d.getMonth(), iso = U.iso;
     switch (rg && rg.p) {
@@ -523,6 +538,7 @@
       case 'm1': return [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))];
       case 'q0': { const q = Math.floor(m / 3) * 3; return [iso(new Date(y, q, 1)), iso(new Date(y, q + 3, 0))]; }
       case 'm3': return [iso(new Date(y, m - 2, 1)), iso(new Date(y, m + 1, 0))];
+      case 'm12': return [iso(new Date(y, m - 11, 1)), iso(new Date(y, m + 1, 0))];
       case 'y0': return [y + '-01-01', y + '-12-31'];
       case 'y1': return [(y - 1) + '-01-01', (y - 1) + '-12-31'];
       case 'custom': return [rg.from || '', rg.to || ''];
