@@ -46,7 +46,7 @@
       { n: 'Giay_khai_sinh', l: 'Giấy khai sinh', t: 'file' },
       { n: 'GhiChu', l: 'Ghi chú', t: 'longtext' }
     ],
-    list: { cols: ['SoDienThoai', 'Email'] }
+    list: { tcols: ['HoTen', 'NgaySinh', 'Hoc_vi', 'Nhom_mau', 'NgayCap', 'NoiCap', 'DiaChiThuongTru', 'DiaChiHienTai', 'SoDienThoai', 'Email'], cols: ['SoDienThoai', 'Email'] }
   };
 
   T.Gioi_thieu = {
@@ -62,7 +62,7 @@
       { n: 'AnhChanDung', l: 'Ảnh chân dung', t: 'image' },
       { n: 'GhiChu', l: 'Ghi chú', t: 'text' }
     ],
-    list: { cols: ['Email_ca_nhan'] }
+    list: { tcols: ['HoTen', 'NgaySinh', 'Hoc_vi', 'Nhom_mau', 'Email_ca_nhan', 'Email_cong_viec', 'GhiChu'], cols: ['Email_ca_nhan'] }
   };
 
   T.BANGCAP = {
@@ -82,7 +82,7 @@
       { n: 'HinhAnh', l: 'Hình ảnh bằng cấp', t: 'image' },
       { n: 'HanConLai', l: 'Còn hạn', t: 'text', v: r => expiryText(r.NgayHetHan) }
     ],
-    list: { group: 'LoaiBangCap', sort: 'NgayCap', cols: ['Nam_TN'] },
+    list: { tcols: ['TenBangCap', 'LoaiBangCap', 'ChuyenNganh', 'Xep_loai', 'DonViCap', 'Nam_TN', 'NgayCap', 'NgayHetHan', '_badge', 'SoHieuBang', 'FileScan'], badgeLabel: 'Hiệu lực', group: 'LoaiBangCap', sort: 'NgayCap', cols: ['Nam_TN'] },
     detail: { stats: ['NgayCap', 'NgayHetHan', 'HanConLai'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
@@ -105,7 +105,7 @@
       { n: 'Hinh_anh', l: 'Hình ảnh tại nhà máy', t: 'image' },
       { n: 'FileHopDong', l: 'File hợp đồng/công nhận chức danh', t: 'file' }
     ],
-    list: { group: 'TenCongTy', sort: 'NgayBatDau', desc: true, cols: ['NgayBatDau', 'NgayKetThuc'] }
+    list: { tcols: ['TenCongTy', 'ViTriChucVu', 'Ten_Nha_may', 'Loai_hinh_nang_luong', 'Chu_dau_tu', 'NgayBatDau', 'NgayKetThuc', 'FileHopDong'], group: 'TenCongTy', sort: 'NgayBatDau', desc: true, cols: ['NgayBatDau', 'NgayKetThuc'] }
   };
 
   T.GIAITHUONG = {
@@ -118,7 +118,7 @@
       { n: 'File_quyet_dinh', l: 'File quyết định', t: 'file' },
       { n: 'HinhAnh', l: 'Hình ảnh', t: 'image' }
     ],
-    list: { sort: 'NgayNhan', cols: ['NgayNhan', 'CapDo'] }
+    list: { tcols: ['TenGiaiThuong', 'ToChucTrao', 'NgayNhan', 'CapDo', 'File_quyet_dinh'], sort: 'NgayNhan', cols: ['NgayNhan', 'CapDo'] }
   };
 
   T.Khac = {
@@ -133,7 +133,7 @@
       { n: 'Issue', l: 'Issue', t: 'text' },
       { n: 'File_goc', l: 'File gốc', t: 'file' }
     ],
-    list: { sort: 'Ngay_cong_khai', desc: true, cols: ['Ngay_cong_khai'] }
+    list: { tcols: ['Noi_dung', 'Tac_gia', 'To chuc', 'Ngay_cong_khai', 'So_trang', 'Issue', 'So_doi', 'File_goc'], sort: 'Ngay_cong_khai', desc: true, cols: ['Ngay_cong_khai'] }
   };
 
   // ---------------- 2. HỒ SƠ ----------------
@@ -147,7 +147,7 @@
       { n: 'Ngay_ky', l: 'Ngày ký hợp đồng', t: 'date' },
       { n: 'File_HD', l: 'File hợp đồng', t: 'file' }
     ],
-    list: { sort: 'Ngay_ky', desc: true, cols: ['Loai_hop_dong', 'Ngay_ky'] },
+    list: { tcols: ['Ten_HD', 'Loai_hop_dong', 'So_Quyet_Dinh', 'Don_vi', 'Ngay_ky', 'File_HD'], sort: 'Ngay_ky', desc: true, cols: ['Loai_hop_dong', 'Ngay_ky'] },
     detail: { stats: ['Ngay_ky', 'Loai_hop_dong'] }
   };
 
@@ -163,7 +163,7 @@
       { n: 'FileScan', l: 'File scan', t: 'file' },
       { n: 'HinhAnh', l: 'Hình ảnh', t: 'image' }
     ],
-    list: { sort: 'NgayCap', desc: true, cols: ['NgayCap'] },
+    list: { tcols: ['TenBangCap', 'ChuyenNganh', 'DonViCap', 'NgayCap', 'NgayHetHan', '_badge', 'FileScan'], badgeLabel: 'Hiệu lực', sort: 'NgayCap', desc: true, cols: ['NgayCap'] },
     detail: { stats: ['NgayCap', 'NgayHetHan'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
@@ -180,7 +180,7 @@
       { n: 'HinhAnh', l: 'Hình ảnh', t: 'image' },
       { n: 'HanConLai', l: 'Còn hạn', t: 'text', v: r => expiryText(r.NgayHetHan) }
     ],
-    list: { sort: 'NgayCap', cols: ['NgayCap', 'NgayHetHan'] },
+    list: { tcols: ['TenBangCap', 'DonViCap', 'Nam_TN', 'NgayCap', 'NgayHetHan', '_badge', 'FileScan'], badgeLabel: 'Hiệu lực', sort: 'NgayCap', cols: ['NgayCap', 'NgayHetHan'] },
     detail: { stats: ['NgayCap', 'NgayHetHan', 'HanConLai'] },
     badge: r => expiryBadge(r.NgayHetHan)
   };
@@ -203,7 +203,7 @@
             + s(vm, x => x.LoaiGiaoDich === 'Đi mượn') - s(vm, x => x.LoaiGiaoDich === 'Mình trả họ');
         } }
     ],
-    list: { group: 'LoaiTaiSan', cols: ['SoDu_TinhToan'] },
+    list: { tcols: ['TenTaiKhoan', 'LoaiTaiSan', 'SoDuHienTai', 'SoDu_TinhToan'], group: 'LoaiTaiSan', cols: ['SoDu_TinhToan'] },
     detail: { stats: ['SoDu_TinhToan', 'SoDuHienTai'] },
     related: [{ t: 'GIAODICH_THUCHI', fk: 'TaiKhoanID', l: 'Giao dịch thu chi' }, { t: 'GIAODICH_VAY_MUON', fk: 'TaiKhoanID', l: 'Giao dịch vay/mượn' }]
   };
@@ -220,7 +220,7 @@
       { n: 'MoTa', l: 'Mô tả', t: 'text' },
       { n: 'ThangNam', l: 'Tháng', t: 'text', v: r => { const m = U.month(r.NgayGD); return m ? m.slice(5) + '/' + m.slice(0, 4) : ''; } }   // mm/yyyy
     ],
-    list: { group: 'Loai', sort: 'NgayGD', desc: true, cols: ['SoTien', 'NgayGD', 'TaiKhoanID'], sum: 'SoTien', sumSplit: ['Loai', 'Thu', 'Chi'], countUnit: 'giao dịch', range: true },
+    list: { tcols: ['NgayGD', 'Loai', 'SoTien', 'DanhMuc', 'MoTa', 'TaiKhoanID'], group: 'Loai', sort: 'NgayGD', desc: true, cols: ['SoTien', 'NgayGD', 'TaiKhoanID'], sum: 'SoTien', sumSplit: ['Loai', 'Thu', 'Chi'], countUnit: 'giao dịch', range: true },
     detail: { stats: ['SoTien', 'NgayGD', 'Loai'], hide: ['ThangNam'] },
     badge: r => r.Loai === 'Thu' ? { text: '+ ' + U.money(r.SoTien), cls: 'ok' } : { text: '− ' + U.money(r.SoTien), cls: 'bad' }
   };
@@ -239,7 +239,7 @@
           return a > 0 ? 'Họ đang nợ mình' : b > 0 ? 'Mình đang nợ họ' : 'Đã tất toán';
         } }
     ],
-    list: { avatar: 'initials' },   // số nợ đã hiện ở nhãn màu bên phải
+    list: { tcols: ['TenNguoi', 'SoDienThoai', 'HoNoMinh', 'MinhNoHo', 'TrangThaiTongQuat', 'Ghichu'], avatar: 'initials' },   // số nợ đã hiện ở nhãn màu bên phải
     detail: { stats: ['HoNoMinh', 'MinhNoHo'], hide: ['TrangThaiTongQuat'] },
     badge: (r, db) => {
       const a = debt(db, r.ID, 'Cho vay', 'Họ trả mình'), b = debt(db, r.ID, 'Đi mượn', 'Mình trả họ');
@@ -260,7 +260,7 @@
       { n: 'TaiKhoanID', l: 'Tài khoản nguồn', t: 'ref', ref: 'TAIKHOAN_TAICHINH' },
       { n: 'GhiChu', l: 'Nội dung', t: 'text' }
     ],
-    list: { group: 'NguoiID', sort: 'NgayGD', desc: true, cols: ['NgayGD', 'NgayHenTra'], range: true },
+    list: { tcols: ['NgayGD', 'NguoiID', 'LoaiGiaoDich', 'SoTien', 'NgayHenTra', 'TaiKhoanID', 'GhiChu'], group: 'NguoiID', sort: 'NgayGD', desc: true, cols: ['NgayGD', 'NgayHenTra'], range: true },
     detail: { stats: ['SoTien', 'NgayGD', 'NgayHenTra'] }
   };
 
@@ -275,7 +275,7 @@
       { n: 'DiaChi', l: 'Địa chỉ', t: 'text' },
       { n: 'Note', l: 'Ghi chú', t: 'longtext' }
     ],
-    list: { sort: 'HoTen', cols: ['SDT'], avatar: 'initials' }
+    list: { tcols: ['HoTen', 'ChucVu', 'VaiTro', 'SDT', 'DiaChi', 'Note'], sort: 'HoTen', cols: ['SDT'], avatar: 'initials' }
   };
 
   T.Danh_sach_goi_thau = {
@@ -294,7 +294,7 @@
       { n: 'Ngay_ketThuc_duKien', l: 'Ngày kết thúc dự kiến', t: 'date' },
       { n: 'Han_tra_loi_ngay', l: 'Hạn trả lời transmittal (ngày)', t: 'number' }
     ],
-    list: { sort: 'MaGoiThau', cols: ['Ten_NhaThau', 'Tinh_trang'] },
+    list: { tcols: ['MaGoiThau', 'Noi_dung', 'Tinh_trang', 'Ten_NhaThau', 'Loai_HĐ', 'Ngayky_HopDong', 'NgayBatDauCongViec', 'Ngay_ketThuc_duKien', 'Han_tra_loi_ngay'], sort: 'MaGoiThau', cols: ['Ten_NhaThau', 'Tinh_trang'] },
     related: [{ t: 'Cong_viec', fk: 'Goi_thau', l: 'Transmittal' }, { t: 'Kiem_tra_hang', fk: 'Goi_thau', l: 'Kiểm tra vật tư' }]
   };
 
@@ -416,7 +416,7 @@
       { n: 'File', l: 'File', t: 'file' },
       { n: 'Ngay_guiDen', l: 'Ngày nhận', t: 'date', init: 'today' }
     ],
-    list: { group: 'Purpose', sort: 'Ngay_guiDen', desc: true, cols: ['Rev', 'id_transmittal'], range: true }
+    list: { tcols: ['Ngay_guiDen', 'id_transmittal', 'Document Number', 'Description', 'Rev', 'Purpose', 'File'], group: 'Purpose', sort: 'Ngay_guiDen', desc: true, cols: ['Rev', 'id_transmittal'], range: true }
   };
 
   // Tài liệu đi = trả lời transmittal: Số Transmittal Out (Document Control cấp), Số CaRs (comm sheet), Trạng thái Out (A–E).
@@ -440,7 +440,7 @@
       { n: 'Rev', l: 'Rev', t: 'text' },
       { n: 'File', l: 'File (comm sheet)', t: 'file' }
     ],
-    list: { group: 'Status', sort: 'Ngay_hoan_hanh', desc: true, cols: ['Ngay_hoan_hanh', 'id_transmittal'], range: true },
+    list: { tcols: ['Ngay_hoan_hanh', 'id_transmittal', 'So_Transmittal_Out', 'So_CaRs', 'Status', 'Document Number', 'Description', 'Rev', 'File'], group: 'Status', sort: 'Ngay_hoan_hanh', desc: true, cols: ['Ngay_hoan_hanh', 'id_transmittal'], range: true },
     badge: r => { const s = String(r.Status || '').split(':')[0].trim(); return s ? { text: 'Trạng thái ' + s, cls: OUT_ST[s] || '' } : null; }
   };
 
@@ -455,7 +455,7 @@
       { n: 'Ngay_hoan_thanh', l: 'Ngày hoàn thành', t: 'date' },
       { n: 'Ghi_chu', l: 'Ghi chú', t: 'longtext' }
     ],
-    list: { group: 'Trang_thai', sort: 'Ngay_giao', desc: true, cols: ['Ngay_giao', 'Nguoi_giao'], range: true },
+    list: { tcols: ['Ten_cong_viec', 'Ngay_giao', 'Nguoi_giao', 'Trang_thai', 'Ngay_hoan_thanh', 'Ghi_chu'], group: 'Trang_thai', sort: 'Ngay_giao', desc: true, cols: ['Ngay_giao', 'Nguoi_giao'], range: true },
     detail: { stats: ['Ngay_giao', 'Ngay_hoan_thanh'] },
     badge: r => r.Trang_thai === 'Đang xử lý' ? { text: 'Đang xử lý', cls: 'bad' } : { text: r.Trang_thai, cls: 'ok' }
   };
@@ -474,7 +474,7 @@
       { n: 'Hinh_anh', l: 'Hình ảnh', t: 'image' },
       { n: 'File', l: 'File đính kèm', t: 'file' }
     ],
-    list: { group: 'Phan_loai', filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Ngay_thuc_hien', desc: true, cols: ['So_luong', 'Ngay_thuc_hien'], sum: 'So_luong', unit: 'kiện', countUnit: 'lần', range: true },
+    list: { tcols: ['Ngay_thuc_hien', 'Goi_thau', 'Phan_loai', 'Noi_dung', 'So_luong', 'Ngay_hoan_thanh', '_badge', 'Ghi_chu', 'Hinh_anh'], badgeLabel: 'Tình trạng', group: 'Phan_loai', filter: 'Goi_thau', lead: 'Goi_thau', sort: 'Ngay_thuc_hien', desc: true, cols: ['So_luong', 'Ngay_thuc_hien'], sum: 'So_luong', unit: 'kiện', countUnit: 'lần', range: true },
     detail: { stats: ['So_luong', 'Ngay_thuc_hien', 'Ngay_hoan_thanh'] },
     badge: r => r.Ngay_hoan_thanh ? { text: 'Hoàn thành', cls: 'ok' } : { text: 'Chưa xong', cls: 'bad' }
   };
@@ -482,7 +482,7 @@
   T.Tool = {
     label: 'Công cụ', key: 'id', title: r => r.Ten_cong_cu,
     fields: [{ n: 'Ten_cong_cu', l: 'Tên công cụ', t: 'text', req: true }, { n: 'File', l: 'File', t: 'file' }],
-    list: { sort: 'Ten_cong_cu' }
+    list: { tcols: ['Ten_cong_cu', 'File'], sort: 'Ten_cong_cu' }
   };
 
   T.Link = {
@@ -492,7 +492,7 @@
       { n: 'Phan_loai', l: 'Phân loại', t: 'enum', other: true, opts: ['Công cụ', 'Công việc - LP1'] },
       { n: 'Link', l: 'Link', t: 'url', req: true }
     ],
-    list: { group: 'Phan_loai', sort: 'Noi_dung' }
+    list: { tcols: ['Noi_dung', 'Phan_loai', 'Link'], group: 'Phan_loai', sort: 'Noi_dung' }
   };
 
   T.Calendar = {
@@ -502,7 +502,7 @@
       { n: 'NgayBatDau', l: 'Bắt đầu', t: 'datetime', req: true },
       { n: 'NgayKetThuc', l: 'Kết thúc', t: 'datetime' }
     ],
-    list: { type: 'calendar', sort: 'NgayBatDau' },
+    list: { tcols: ['TenSuKien', 'NgayBatDau', 'NgayKetThuc'], desc: true, type: 'calendar', sort: 'NgayBatDau' },
     detail: { stats: ['NgayBatDau', 'NgayKetThuc'] }
   };
 
@@ -515,7 +515,7 @@
       { n: 'Thu_tu', l: 'Thứ tự', t: 'number' },
       { n: 'Anh_bia', l: 'Ảnh bìa', t: 'image' }
     ],
-    list: { sort: 'Thu_tu' }
+    list: { tcols: ['Thu_tu', 'Ten_album', 'Mo_ta', 'Anh_bia'], sort: 'Thu_tu' }
   };
 
   T.HINH_ANH = {
@@ -544,7 +544,7 @@
       { n: 'TrangThai', l: 'Trạng thái tài khoản', t: 'enum', opts: ['Đang hoạt động', 'Dừng hoạt động'], init: 'Đang hoạt động' },
       { n: 'GhiChu', l: 'Ghi chú', t: 'text' }
     ],
-    list: { group: 'LoaiTaiKhoan', sort: 'TenDichVu', cols: ['NgayDoiGanNhat'] },
+    list: { tcols: ['TenDichVu', 'LoaiTaiKhoan', 'TenDangNhap', 'EmailKhoiPhuc', 'NgayDoiGanNhat', 'TrangThai', '_badge', 'GhiChu'], badgeLabel: 'Nhắc đổi mật khẩu', group: 'LoaiTaiKhoan', sort: 'TenDichVu', cols: ['NgayDoiGanNhat'] },
     detail: { stats: ['NgayDoiGanNhat', 'TrangThai'] },
     badge: r => {
       if (r.TrangThai === 'Dừng hoạt động') return { text: 'Dừng', cls: 'muted' };

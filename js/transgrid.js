@@ -12,7 +12,6 @@
   const esc = U.esc, enc = encodeURIComponent;
   const T = 'TRANS_DOC';
   const TG = (window.TransGrid = {});
-  const LIB = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
 
   TG.render = async it => {
     const key = it.key;
@@ -85,47 +84,10 @@
       const b = e.currentTarget, html = b.innerHTML;
       if (!shown.length) return U.toast('Không có dòng nào để xuất');
       b.disabled = true; b.innerHTML = `${Icon('download')}<span>Đang xuất…</span>`;
-      try { await exportXlsx(shown); U.toast(`Đã xuất ${U.int(shown.length)} dòng ra Excel`, 'ok'); }
+      try { await Grid.xlsx(T, shown, { name: 'Transmittal' }); U.toast(`Đã xuất ${U.int(shown.length)} dòng ra Excel`, 'ok'); }
       catch (er) { U.toast(er.message, 'err'); }
       finally { b.disabled = false; b.innerHTML = html; }
     };
     draw();
   };
-
-  // Thư viện ExcelJS (cdnjs) — chỉ tải khi bấm Xuất Excel lần đầu
-  let libP = null;
-  const lib = () => libP || (libP = new Promise((ok, no) => {
-    if (window.ExcelJS) return ok(window.ExcelJS);
-    const s = document.createElement('script');
-    s.src = LIB; s.crossOrigin = 'anonymous';
-    s.onload = () => ok(window.ExcelJS);
-    s.onerror = () => { libP = null; s.remove(); no(new Error('Không tải được thư viện Excel — kiểm tra kết nối mạng rồi thử lại')); };
-    document.head.appendChild(s);
-  }));
-
-  // Xuất Excel đúng các cột đang hiện, các dòng đang lọc / sắp xếp; ngày là ngày thật (dd/mm/yyyy), số là số
-  async function exportXlsx(rows) {
-    const ExcelJS = await lib();
-    const cols = Grid.colsOf(T);
-    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Transmittal', { views: [{ state: 'frozen', ySplit: 1 }] });
-    ws.columns = cols.map(c => ({ header: c.f.l || c.l, key: c.n, width: Math.max(6, Math.round(Grid.width(T, c) / 7)) }));
-    rows.forEach(r => ws.addRow(Object.fromEntries(cols.map(c => {
-      const f = c.f, v = c.n === '_badge' ? '' : DB.val(T, r, c.n);
-      if (c.n === '_badge') { const b = DB.badge(T, r); return [c.n, b ? b.text : '']; }
-      if (/^(date|datetime|expiry)$/.test(f.t)) { const d = U.parseDate(v); return [c.n, d ? new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) : '']; }
-      if (/^(number|price)$/.test(f.t) && v !== '' && v != null && isFinite(U.num(v))) return [c.n, U.num(v)];
-      return [c.n, Grid.text(T, r, c.n)];
-    }))));
-    cols.forEach((c, i) => { if (/^(date|datetime|expiry)$/.test(c.f.t)) ws.getColumn(i + 1).numFmt = 'dd/mm/yyyy'; });
-    const h = ws.getRow(1);
-    h.font = { bold: true, color: { argb: 'FFFFFFFF' } }; h.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; h.height = 30;
-    h.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0089FF' } }; });
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
-    const buf = await wb.xlsx.writeBuffer();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    a.download = 'Transmittal ' + U.fmtDate(U.today()).replace(/\//g, '-') + '.xlsx';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }
 })();

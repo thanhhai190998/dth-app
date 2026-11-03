@@ -293,6 +293,8 @@
     if (it.type === 'music') return Music.render(it);
     if (it.table === 'Cong_viec' && window.TransGrid) return TransGrid.render(it);   // Transmittal: bảng kiểu Access, mỗi tài liệu 1 dòng
     const t = it.table, def = TT()[t], L = def.list || {};
+    if (L.type !== 'gallery') return V.gridList(it);   // mọi danh sách khác (trừ album ảnh): bảng kiểu Access
+    // Album ảnh: lưới ảnh như cũ
     App.head(it.label, { back: true });
     App.loading();
     await DB.loadDeps(t);
@@ -390,6 +392,117 @@
       fr.onchange = to.onchange = () => { st.rg.from = fr.value; st.rg.to = to.value; drawChips(); draw(); };
     }
     drawChips(); draw();
+  };
+
+  // ---------------- DANH SÁCH DẠNG BẢNG (kiểu MS Access, như app Phòng TCXL — js/grid.js) ----------------
+  // Chọn / đổi thứ tự cột, sắp xếp + lọc từng cột (lưu trên máy), xuất Excel; dòng tổng (list.sum, list.sumSplit),
+  // lọc thời gian (list.range). Cột mặc định: list.tcols trong schema.js. Mở kèm bộ lọc: #/i/<mục>?<cột>=<giá trị>
+  V.gridList = async it => {
+    const key = it.key, t = it.table, def = TT()[t], L = def.list || {};
+    App.head(it.label, { back: true });
+    App.loading();
+    await DB.loadDeps(t);
+    const st = (V.state[key] = V.state[key] || {});
+    st.q = st.q || ''; st.flt = st.flt || {}; st.rg = st.rg || { p: 'all', from: '', to: '' };
+    if (st.sort === undefined) st.sort = L.sort ? { n: L.sort, dir: L.desc ? -1 : 1 } : null;
+    const qs = new URLSearchParams(location.hash.split('?')[1] || '');
+    if ([...qs.keys()].length) {
+      st.flt = {}; st.top = 0;
+      qs.forEach((v, k) => { if (DB.field(t, k)) st.flt[k] = { vals: [v === '' || v === '(trống)' ? Grid.EMPTY : v] }; });
+      st.q = qs.get('q') || '';
+      history.replaceState(null, '', '#/i/' + enc(key));
+    }
+    const canAdd = App.user.admin || (it.album ? Perm.rank(quyen()[it.perm]) === 2 : tableLv(t) === 2);
+    const addHref = `#/f/${t}/new` + (it.album ? '?Album=' + enc(it.album) : '');
+    const dateF = L.range && L.sort && DB.field(t, L.sort);
+
+    App.main.innerHTML = `<div class="lbar">
+        <label class="lsearch">${Icon('search')}<input type="search" placeholder="Tìm trong ${esc(it.label.toLowerCase())}…" value="${esc(st.q)}"></label>
+        <button type="button" class="btn ghost ladd" data-cols title="Chọn cột hiển thị, đổi thứ tự cột">${Icon('cols')}<span>Cột</span></button>
+        <button type="button" class="btn ghost ladd" data-xlsx title="Xuất Excel các dòng đang hiện (theo bộ lọc)">${Icon('download')}<span>Xuất Excel</span></button>
+        ${canAdd ? `<a class="btn ladd" href="${addHref}">${Icon('plus')}<span>Thêm</span></a>` : ''}
+      </div>
+      ${dateF ? `<div class="lfil">
+        <label class="tsel" title="Lọc theo ${esc(dateF.l.toLowerCase())}">${Icon('calendar')}<select id="tsel" aria-label="Khoảng thời gian">
+          ${RANGES.map(([v, l]) => `<option value="${v}" ${v === st.rg.p ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
+        <span class="trng" id="trng" ${st.rg.p === 'custom' ? '' : 'hidden'}>
+          ${V.dateInput('id="tfrom"', st.rg.from, { label: 'Từ ngày' })}<span>→</span>${V.dateInput('id="tto"', st.rg.to, { label: 'Đến ngày' })}</span>
+      </div>` : ''}
+      <div class="lsum" id="lsum"></div><div class="gfbar" id="gfbar" hidden></div>
+      <div class="gwrap" id="grid"></div>
+      ${canAdd ? `<a class="fab" href="${addHref}" title="Thêm mới" style="--gc:${it.color || 'var(--pri)'}">${Icon('plus')}</a>` : ''}`;
+    App.main.classList.toggle('has-fab', canAdd);
+
+    // Lọc thời gian: dòng không có ngày bị loại khi đang chọn 1 khoảng
+    const inRange = r => {
+      if (!dateF) return true;
+      const [a, b] = V.rangeOf(st.rg); if (!a && !b) return true;
+      const v = U.isoOf(DB.val(t, r, L.sort)); if (!v) return false;
+      return (!a || v >= a) && (!b || v <= b);
+    };
+    // Dòng tổng: số dòng + tổng cột cộng (Thu chi: thu · chi · chênh lệch) + khoảng thời gian / chữ đang tìm
+    const drawSum = rows => {
+      const [a, b] = V.rangeOf(st.rg), on = a || b;
+      const span = on ? (a && b ? `${U.fmtDate(a)} → ${U.fmtDate(b)}` : a ? 'từ ' + U.fmtDate(a) : 'đến ' + U.fmtDate(b)) : '';
+      let tot = '';
+      if (L.sumSplit) {
+        const [col, plus, minus] = L.sumSplit, fc = st.flt[col];
+        if (fc && fc.vals && fc.vals.length === 1) tot = ` · tổng <b>${esc(V.fmtSum(t, V.sumOf(t, rows)))}</b>`;   // đang lọc riêng Thu hoặc Chi
+        else {
+          const by = v => V.sumOf(t, rows.filter(r => String(r[col]) === v)), p = by(plus), m = by(minus);
+          tot = ` · ${esc(plus.toLowerCase())} <b>${esc(V.fmtSum(t, p))}</b> · ${esc(minus.toLowerCase())} <b>${esc(V.fmtSum(t, m))}</b>`
+            + ` · chênh lệch <b class="${p - m < 0 ? 'neg' : 'pos'}">${p - m < 0 ? '−' : ''}${esc(V.fmtSum(t, Math.abs(p - m)))}</b>`;
+        }
+      } else if (L.sum) tot = ` · tổng <b>${esc(V.fmtSum(t, V.sumOf(t, rows)))}</b>`;
+      const all = V.filterRows(it, '').length, notes = [span, st.q ? 'khớp "' + st.q + '"' : '', rows.length < all ? 'trong ' + U.int(all) : ''].filter(Boolean);
+      document.getElementById('lsum').innerHTML = `${Icon('table', 'sm')}<span><b>${U.int(rows.length)}</b> ${esc(L.countUnit || 'mục')}${tot}
+        ${notes.length ? `<span class="muted">· ${notes.map(esc).join(' · ')}</span>` : ''}</span>`;
+    };
+    // Các bộ lọc cột đang dùng: mỗi cái 1 nhãn (bấm để bỏ) + Xoá tất cả
+    const drawFbar = () => {
+      const box = document.getElementById('gfbar'), act = Grid.active(st.flt);
+      box.hidden = !act.length;
+      box.innerHTML = `${Icon('filter', 'sm')}${act.map(n => `<button type="button" class="xchip" data-xf="${esc(n)}" title="Bỏ lọc cột này">${esc(n === '_badge' ? L.badgeLabel || 'Trạng thái' : Grid.short(DB.field(t, n).l))}: <b>${esc(Grid.summary(t, n, st.flt[n]))}</b> ${Icon('x', 'sm')}</button>`).join('')}
+        ${act.length > 1 ? '<button type="button" class="linkbtn" data-xall>Xoá tất cả lọc</button>' : ''}`;
+      box.querySelectorAll('[data-xf]').forEach(b => b.onclick = () => { delete st.flt[b.dataset.xf]; st.top = 0; draw(); });
+      const xa = box.querySelector('[data-xall]'); if (xa) xa.onclick = () => { st.flt = {}; st.top = 0; draw(); };
+    };
+    let shown = [];
+    const draw = () => {
+      const empty = st.q || Grid.active(st.flt).length || (dateF && st.rg.p !== 'all') ? 'Không có dòng nào khớp — bỏ bớt bộ lọc'
+        : `Chưa có dữ liệu${canAdd ? ` · <a href="${addHref}">Thêm mới</a>` : ''}`;
+      drawFbar();
+      const grid = document.getElementById('grid');
+      shown = Grid.mount(grid, { t, st, rows: V.filterRows(it, st.q).filter(inRange), onFilter: draw, empty });
+      drawSum(shown);
+      Grid.fit(grid); grid.dispatchEvent(new Event('scroll'));   // dòng tổng vừa vẽ đẩy bảng xuống → tính lại chiều cao
+    };
+    let qt = null;
+    App.main.querySelector('.lsearch input').oninput = e => { st.q = e.target.value; st.top = 0; clearTimeout(qt); qt = setTimeout(draw, 150); };
+    App.main.querySelector('[data-cols]').onclick = () => Grid.chooser(t, draw);
+    App.main.querySelector('[data-xlsx]').onclick = async e => {
+      const b = e.currentTarget, html = b.innerHTML;
+      if (!shown.length) return U.toast('Không có dòng nào để xuất');
+      b.disabled = true; b.innerHTML = `${Icon('download')}<span>Đang xuất…</span>`;
+      try { await Grid.xlsx(t, shown, { name: it.label }); U.toast(`Đã xuất ${U.int(shown.length)} dòng ra Excel`, 'ok'); }
+      catch (er) { U.toast(er.message, 'err'); }
+      finally { b.disabled = false; b.innerHTML = html; }
+    };
+    if (dateF) {
+      V.dates(App.main);
+      const sel = document.getElementById('tsel'), rng = document.getElementById('trng'), fr = document.getElementById('tfrom'), to = document.getElementById('tto');
+      sel.onchange = () => {
+        st.rg.p = sel.value; st.top = 0;
+        if (sel.value === 'custom' && !st.rg.from && !st.rg.to) {   // gợi ý sẵn: đầu tháng này → hôm nay
+          const d = new Date(); st.rg.from = fr.value = U.iso(new Date(d.getFullYear(), d.getMonth(), 1)); st.rg.to = to.value = U.today();
+          fr._sync(); to._sync();
+        }
+        rng.hidden = sel.value !== 'custom';
+        draw();
+      };
+      fr.onchange = to.onchange = () => { st.rg.from = fr.value; st.rg.to = to.value; st.top = 0; draw(); };
+    }
+    draw();
   };
 
   // Tổng cột số (list.sum) của các dòng; tiền → "1.200.000 ₫", số → "308 kiện"

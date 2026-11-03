@@ -45,7 +45,9 @@
     return v.length ? v : G.defaults(t, view);
   };
   const WIDTH = { date: 106, datetime: 140, expiry: 106, number: 92, price: 120, ref: 130, enum: 132, longtext: 240, url: 170, email: 190, phone: 120, file: 70, image: 70, badge: 120 };
-  G.width = (t, c, view) => (ls.get('pwa-colw|' + vk(t, view), {})[c.n]) || c.f.w || WIDTH[c.f.t] || (c.n === 'STT' ? 70 : 150);
+  // Độ rộng: người dùng đã kéo → theo đó; không thì theo kiểu cột / field.w, nới ra cho đủ chữ tiêu đề (tối đa 260 px)
+  G.width = (t, c, view) => (ls.get('pwa-colw|' + vk(t, view), {})[c.n])
+    || Math.max(c.f.w || WIDTH[c.f.t] || (c.n === 'STT' ? 70 : 150), Math.min(260, Math.round(String(c.l).length * 6.8) + 42));
   const colOf = (t, n) => G.allCols(t).find(c => c.n === n);
   const vk = (t, view) => (view && view.key) || t;   // khoá lưu bộ cột / độ rộng: theo kiểu xem hoặc theo bảng
   G.colsOf = (t, view) => G.visible(t, view).map(n => colOf(t, n)).filter(Boolean);   // cột đang hiện (đối tượng cột)
@@ -74,6 +76,7 @@
     const f = DB.field(t, n);
     if (f && /^(file|image)$/.test(f.t)) return r[n] ? `<span class="gfile">${Icon('file', 'sm')}</span>` : '';
     if (f && f.plain) return esc(DB.val(t, r, n) ?? '');
+    if (f && (f.t === 'url' || f.t === 'email')) return DB.show(t, r, n);   // link / email bấm được (bấm vào link không mở trang chi tiết)
     return String(DB.show(t, r, n, true) || '').replace(/<br>/g, ' ');
   };
   const sortVal = (t, r, n) => {
@@ -310,6 +313,50 @@
     };
     wrap.onclick = e => { if (e.target === wrap) wrap.remove(); };
     paint(); document.body.appendChild(wrap);
+  };
+
+  // ---------- Xuất Excel: đúng các cột đang hiện, các dòng đang lọc / sắp xếp; ngày là ngày thật, số / tiền là số ----------
+  // ExcelJS (cdnjs) chỉ tải khi bấm Xuất Excel lần đầu. o: { name (tên file / sheet), view }
+  const XLIB = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+  let xlibP = null;
+  const xlib = () => xlibP || (xlibP = new Promise((ok, no) => {
+    if (window.ExcelJS) return ok(window.ExcelJS);
+    const s = document.createElement('script');
+    s.src = XLIB; s.crossOrigin = 'anonymous';
+    s.onload = () => ok(window.ExcelJS);
+    s.onerror = () => { xlibP = null; s.remove(); no(new Error('Không tải được thư viện Excel — kiểm tra kết nối mạng rồi thử lại')); };
+    document.head.appendChild(s);
+  }));
+  G.xlsx = async (t, rows, o = {}) => {
+    const ExcelJS = await xlib(), cols = G.colsOf(t, o.view), name = String(o.name || TT()[t].label || 'Bang');
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] });
+    ws.columns = cols.map(c => ({ header: c.f.l || c.l, key: c.n, width: Math.max(6, Math.round(G.width(t, c, o.view) / 7)) }));
+    rows.forEach(r => ws.addRow(Object.fromEntries(cols.map(c => {
+      if (c.n === '_badge') { const b = DB.badge(t, r); return [c.n, b ? b.text : '']; }
+      const f = c.f, v = DB.val(t, r, c.n);
+      if (isDate(f)) {   // ngày thật (giữ giờ của cột ngày giờ); "Không thời hạn" giữ chữ
+        const d = U.parseDate(v);
+        return [c.n, d ? new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), f.t === 'datetime' ? d.getHours() : 0, f.t === 'datetime' ? d.getMinutes() : 0)) : (v || '')];
+      }
+      if (isNum(f) && v !== '' && v != null && isFinite(U.num(v))) return [c.n, U.num(v)];
+      if (/^(file|image)$/.test(f.t)) return [c.n, v ? 'Có file' : ''];
+      return [c.n, G.text(t, r, c.n)];
+    }))));
+    cols.forEach((c, i) => {
+      const col = ws.getColumn(i + 1);
+      if (isDate(c.f)) col.numFmt = c.f.t === 'datetime' ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy';
+      else if (c.f.t === 'price') col.numFmt = '#,##0';
+    });
+    const h = ws.getRow(1), hex = String(window.APP_CONFIG.primaryColor || '#0089ff').replace('#', '').toUpperCase();
+    h.font = { bold: true, color: { argb: 'FFFFFFFF' } }; h.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }; h.height = 30;
+    h.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + hex } }; });
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+    const buf = await wb.xlsx.writeBuffer();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    a.download = name + ' ' + U.fmtDate(U.today()).replace(/\//g, '-') + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
 
   // ---------- Bảng nhỏ trong trang chi tiết (danh sách liên quan, không lọc) ----------
