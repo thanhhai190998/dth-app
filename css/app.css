@@ -1323,3 +1323,110 @@ body:has(#view .calw) .foot { margin-top: 0; }
   .cm-d.today.sel .cm-n { background: var(--pri); color: #fff; }
   .calnotes { top: calc(var(--top-h, 54px) + 8px); bottom: auto; left: 12px; right: 12px; width: auto; }
 }
+
+/* ---------- Hiệu ứng động (js/fx.js) — body.fx-full = "Đầy đủ" (mặc định), không có lớp = "Nhẹ", body.fx-off = "Tắt" ---------- */
+:root { --spring: cubic-bezier(.34, 1.56, .64, 1); }
+/* Tắt: như máy đặt giảm chuyển động */
+.fx-off *, .fx-off *::before, .fx-off *::after { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+
+/* Gợn sóng khi bấm */
+.fx-rw { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.fx-rw i { position: absolute; border-radius: 50%; background: var(--rip, currentColor); opacity: .2; transform: scale(0); animation: fxRip .65s cubic-bezier(.2, .7, .3, 1) forwards; }
+/* màu gợn: nút chính = chữ trắng; thẻ / nút viền = màu chủ đạo (thao tác nhanh theo màu riêng) */
+:is(.segb, .chip, .chip2, .cib, .kcard, .dr-i, .dr-gh, .ag, .xchip, .ibtn3) > .fx-rw { --rip: var(--pri); }
+.hact > .fx-rw { --rip: var(--ac, var(--pri)); }
+.btn.ghost > .fx-rw { --rip: var(--pri); }
+@keyframes fxRip { to { transform: scale(1); opacity: 0; } }
+
+/* Ánh sáng theo chuột trên thẻ (nằm dưới chữ) */
+.fx-full :is(.kcard, .hact, .dcard) { position: relative; isolation: isolate; }
+.fx-full :is(.kcard, .hact, .dcard)::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--pri) 13%, transparent), transparent 70%); }
+.fx-full :is(.kcard, .hact, .dcard):hover::before { opacity: 1; }
+.fx-full .dcard::before { background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--pri) 7%, transparent), transparent 70%); }
+/* Biểu tượng nảy nhẹ khi rê chuột */
+.fx-full .kcard:hover .kic, .fx-full .hact:hover .hai, .fx-full .dr-i:hover .dr-ic, .fx-full .dr-gh:hover .gic, .fx-full .dcard:hover .gic { animation: fxPop .55s var(--spring); }
+@keyframes fxPop { 0% { transform: none; } 35% { transform: scale(1.2) rotate(-8deg); } 65% { transform: scale(.95) rotate(4deg); } 100% { transform: none; } }
+
+/* Trang chủ: ảnh nhà máy chuyển động chậm (Ken Burns), đốm sáng trôi trên nền, vẫy tay ở lời chào */
+.fx-full .hero-img { animation: fxKen 26s ease-in-out infinite alternate; transform-origin: 70% 60%; }
+@keyframes fxKen { from { transform: scale(1); } to { transform: scale(1.09) translate(-1.2%, -1%); } }
+.fx-full #hero:has(.hero-img)::before { content: ''; position: absolute; inset: -30% -10%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .16), transparent) 12% 30% / 34% 60% no-repeat,
+    radial-gradient(closest-side, rgba(125, 211, 252, .2), transparent) 46% 78% / 28% 52% no-repeat,
+    radial-gradient(closest-side, rgba(196, 181, 253, .16), transparent) 30% 8% / 22% 40% no-repeat;
+  animation: fxDrift 16s ease-in-out infinite alternate; }
+@keyframes fxDrift { from { transform: translate(-3%, 2%) rotate(-2deg); } to { transform: translate(4%, -3%) rotate(3deg); } }
+.fx-full .hhello::after { content: '👋'; display: inline-block; margin-left: 8px; transform-origin: 70% 80%; animation: fxWave 2.2s ease-in-out .6s 2 both; }
+@keyframes fxWave { 0%, 60%, 100% { transform: none; } 10% { transform: rotate(16deg); } 20% { transform: rotate(-9deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-5deg); } 50% { transform: rotate(10deg); } }
+
+/* Hộp thoại: nền mờ dần + hộp bật lên */
+.fx-full .modal-bg { animation: fadeIn .2s ease both; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.fx-full .modal-bg > .modal { animation: fxModal .36s var(--spring) both; }
+@keyframes fxModal { from { opacity: 0; transform: translateY(14px) scale(.94); } }
+.fx-full .gpop { animation: fxPopIn .18s var(--ease, ease) both; }
+@keyframes fxPopIn { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
+
+/* Thông báo nhỏ (toast): bật lên, dấu ✓ tự vẽ, báo lỗi rung nhẹ */
+.toast { display: flex; align-items: center; gap: 8px; }
+.tic { width: 19px; height: 19px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.fx-full .toast { transition: transform .45s var(--spring), opacity .25s; }
+.fx-full .toast.show .tic circle { stroke-dasharray: 60; animation: fxDraw .5s ease-out .05s both; }
+.fx-full .toast.show .tic path { stroke-dasharray: 16; animation: fxDraw16 .3s ease-out .45s both; }
+@keyframes fxDraw { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes fxDraw16 { from { stroke-dashoffset: 16; } to { stroke-dashoffset: 0; } }
+.fx-full .toast.err.show { animation: fxShake .42s .2s; }
+@keyframes fxShake { 20%, 60% { transform: translate(calc(-50% - 7px), 0); } 40%, 80% { transform: translate(calc(-50% + 7px), 0); } }
+
+/* Vào trang (fx-enter ~1,7 giây): dòng bảng trượt vào lần lượt, thanh biểu đồ mọc ra, nút + nổi bật lên */
+.fx-full.fx-enter .dt tbody tr[data-k] { animation: fxRow .4s var(--ease, ease) both; animation-delay: calc(var(--i, 18) * 22ms + 60ms); }
+@keyframes fxRow { from { opacity: 0; transform: translateY(8px); } }
+.fx-full.fx-enter .hb-f, .fx-full .fx-rvin .hb-f { animation: fxBarX .9s var(--ease, ease) both; animation-delay: calc(var(--i, 0) * 60ms + .15s); transform-origin: left center; }
+@keyframes fxBarX { from { transform: scaleX(0); } }
+.fx-full.fx-enter .cx-bar, .fx-full .fx-rvin .cx-bar { animation: fxBarY .8s var(--ease, ease) both; animation-delay: calc(var(--i, 0) * 30ms + .15s); transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes fxBarY { from { transform: scaleY(0); } }
+.fx-full.fx-enter .fab { animation: fxFab .55s var(--spring) .25s both; }
+@keyframes fxFab { from { transform: scale(0) rotate(-90deg); opacity: 0; } }
+.fx-full .fab .ico, .fx-full .cadd .ico { transition: transform .35s var(--spring); }
+.fx-full .fab:hover .ico, .fx-full .cadd:hover .ico { transform: rotate(90deg); }
+
+/* Thẻ dưới màn hình: hiện dần khi cuộn tới */
+.fx-full .fx-rv { opacity: 0; transform: translateY(26px); }
+.fx-full .fx-rv.fx-rvin { opacity: 1; transform: none; transition: opacity .6s var(--ease, ease), transform .6s var(--ease, ease); }
+
+/* Vừa lưu: sáng lên một nhịp (cả mức "Nhẹ") */
+.fx-flash { animation: fxFlash 1.6s ease-out; }
+tr.fx-flash td { animation: fxFlashTd 1.6s ease-out; }
+@keyframes fxFlash { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); } 70% { box-shadow: 0 0 0 10px transparent; } 100% { box-shadow: none; } }
+@keyframes fxFlashTd { 0%, 30% { background: color-mix(in srgb, var(--ok) 22%, var(--card)); } }
+
+/* Pháo giấy */
+.fx-conf { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 95; pointer-events: none; }
+
+/* Menu: vạch màu ở mục đang mở mọc ra */
+.fx-full .dr-i.on { position: relative; }
+.fx-full .dr-i.on::before { content: ''; position: absolute; left: 3px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--pri); animation: fxGrowY .35s var(--spring) both; }
+@keyframes fxGrowY { from { transform: scaleY(0); } }
+@media (min-width: 1100px) { .fx-full.has-drawer.nav-mini .dr-nav > .dr-i.on::before { display: none; } }
+
+/* Lịch: sang tháng/tuần trượt theo hướng, đổi chế độ mờ dần, hôm nay toả nhịp, vạch giờ hiện tại đập nhẹ */
+.fx-full .cmain[data-slide="next"] :is(.cm-g, .cw, .cwl) { animation: fxNext .34s var(--ease, ease) both; }
+.fx-full .cmain[data-slide="prev"] :is(.cm-g, .cw, .cwl) { animation: fxPrev .34s var(--ease, ease) both; }
+.fx-full .cmain[data-slide="fade"] > * { animation: riseIn .34s var(--ease, ease) both; }
+@keyframes fxNext { from { opacity: 0; transform: translateX(34px); } }
+@keyframes fxPrev { from { opacity: 0; transform: translateX(-34px); } }
+.fx-full .cm-d.today .cm-n { animation: fxToday 2.4s ease-out .4s 3; }
+@keyframes fxToday { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pri) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 9px transparent; } }
+.fx-full .cw-now::before { animation: fxNow 2s ease-out infinite; }
+@keyframes fxNow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 60%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+.fx-full .ce:not(.more) { transition: transform .18s var(--ease, ease), box-shadow .18s, background .15s; }
+.fx-full .ce:not(.more):hover { transform: translateY(-1px); box-shadow: 0 4px 10px color-mix(in srgb, var(--ec, var(--pri)) 28%, transparent); }
+.fx-full .cwe { transition: transform .18s var(--ease, ease), box-shadow .18s; }
+.fx-full .cwe:hover { transform: translateY(-1px); box-shadow: 0 6px 14px color-mix(in srgb, var(--ec, var(--pri)) 30%, transparent); z-index: 4; }
+
+/* Màn khoá PIN: chấm bật lên khi gõ */
+.fx-full .lk-dots i.on { animation: fxDot .28s var(--spring); }
+@keyframes fxDot { from { transform: scale(.5); } }
+
+/* Đổi Sáng/Tối lan tròn (View Transitions) */
+.fx-vt::view-transition-old(root), .fx-vt::view-transition-new(root) { animation: none; mix-blend-mode: normal; }

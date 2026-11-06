@@ -177,7 +177,9 @@
         + `<div data-biorow hidden>${srow('key', 'var(--g6)', 'Mở khoá bằng vân tay / khuôn mặt', 'Windows Hello, vân tay, Face ID của máy này — mã PIN vẫn dùng được',
           `<input type="checkbox" class="sw" data-act="bio" ${Lock.bioOn() ? 'checked' : ''} aria-label="Mở khoá bằng vân tay / khuôn mặt">`)}</div>` : ''));
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
-      `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`));
+      `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`)
+      + (window.Fx ? srow('star', 'var(--g4)', 'Hiệu ứng động', 'Áp dụng trên máy này · Nhẹ = chỉ hiệu ứng chuyển trang · Tắt = đứng yên, hợp máy yếu',
+        `<div class="seg mini" data-act="fx">${[['full', 'Đầy đủ'], ['lite', 'Nhẹ'], ['off', 'Tắt']].map(([v, l]) => `<button type="button" class="segb ${v === Fx.level() ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`) : ''));
 
     h += group('Ứng dụng',
       (App.installPrompt ? srow('download', 'var(--g0)', 'Cài app vào máy này', 'Mở như app riêng, có biểu tượng trên màn hình', '<button class="btn sm" data-act="install">Cài</button>')
@@ -242,7 +244,9 @@
     on('switch', e => { API.demo.switchUser(e.target.value); DB.clear(); Vault.lock(); location.hash = '#/'; location.reload(); });
     on('reset', async () => { if (await U.confirm('Xoá toàn bộ dữ liệu demo và tạo lại dữ liệu mẫu?')) { API.demo.reset(); localStorage.removeItem('pwa-demo-user'); location.hash = '#/'; location.reload(); } });
     const tb = App.main.querySelector('[data-act="theme"]');
-    tb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; App.setTheme(b.dataset.v); A.settings(); };
+    tb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const go = () => { App.setTheme(b.dataset.v); A.settings(); }; if (window.Fx) Fx.themeSwap(go, e); else go(); };
+    const fb = App.main.querySelector('[data-act="fx"]');
+    if (fb) fb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; Fx.setLevel(b.dataset.v); fb.querySelectorAll('.segb').forEach(x => x.classList.toggle('on', x === b)); U.toast('Đã lưu', 'ok'); };
     on('update', async () => {
       try {
         const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();

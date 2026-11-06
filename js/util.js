@@ -58,7 +58,9 @@
   U.toast = (msg, kind) => {
     const t = document.createElement('div');
     t.className = 'toast ' + (kind || '');
-    t.textContent = msg;
+    const ic = kind === 'ok' ? '<circle cx="12" cy="12" r="9.5"/><path d="M7.6 12.3l3 3 5.9-6.2"/>' : kind === 'err' ? '<circle cx="12" cy="12" r="9.5"/><path d="M12 7.4v5.8M12 16.5v.1"/>' : '';
+    t.innerHTML = (ic ? `<svg class="tic" viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>` : '') + '<span></span>';
+    t.lastChild.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.classList.add('show'), 10);
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, kind === 'err' ? 5000 : 2500);

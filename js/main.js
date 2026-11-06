@@ -143,7 +143,7 @@
       if (!el) return;
       if (App._cntAt !== App.navAt) { App._cntAt = App.navAt; App._cntKeys = new Set(); }
       const again = key != null && App._cntKeys.has(key); if (key != null) App._cntKeys.add(key);
-      if (again || !document.body.classList.contains('soft') || Date.now() - (App.navAt || 0) > 4000 || !(n > 0) || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = U.int(n); return; }
+      if (again || !document.body.classList.contains('soft') || Date.now() - (App.navAt || 0) > 4000 || !(n > 0) || (window.Fx && Fx.off()) || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = U.int(n); return; }
       const t0 = performance.now(), D = App.cntD || 800;
       const step = t => { const k = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - k, 3); el.textContent = U.int(Math.round(n * e)); if (k < 1 && el.isConnected) requestAnimationFrame(step); };
       requestAnimationFrame(step);
@@ -197,6 +197,7 @@
         const b = document.body; b.classList.remove('vin'); void b.offsetWidth; b.classList.add('vin');
         clearTimeout(App._vinT); App._vinT = setTimeout(() => b.classList.remove('vin'), 900);
       }
+      if (window.Fx) Fx.afterRoute(keep);   // hiệu ứng vào trang (js/fx.js)
       try { performance.mark('route:' + location.hash); } catch (e) { /* đo thời gian mở trang (DevTools → Performance) */ }
     } catch (e) {
       console.error(e);

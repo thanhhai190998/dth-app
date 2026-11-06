@@ -88,7 +88,7 @@
     const openId = qs.get('e');
     if (qs.get('d') && U.parseDate(qs.get('d'))) st.cur = st.sel = U.isoOf(qs.get('d'));
     if (openId || qs.get('d')) { history.replaceState(null, '', '#/i/' + enc(key)); if (st.mode === 'list') st.mode = 'month'; }
-    const setMode = m => { st.mode = m; lsSet('pwa-cal-mode', m); Cal.render(it); };
+    const setMode = m => { st.mode = m; st.fx = 'fade'; lsSet('pwa-cal-mode', m); Cal.render(it); };
 
     if (st.mode === 'list') {   // bảng kiểu Access như các mục khác + nút đổi chế độ xem
       await Views.gridList(it);
@@ -136,7 +136,17 @@
       else s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8);
       return { s, e: new Date(s.getTime() + 3600000) };
     };
-    const after = saved => { if (saved) { const ev = evOf(saved); if (ev) st.sel = dkey(ev.s); } draw(); Cal.tick(); };
+    const after = saved => {
+      if (saved) { const ev = evOf(saved); if (ev) st.sel = dkey(ev.s); }
+      draw(); Cal.tick();
+      if (saved && window.Fx) Fx.flash(main.querySelectorAll(`[data-e="${CSS.escape(String(saved.id))}"]`));   // sự kiện vừa lưu sáng lên
+    };
+    // Hiệu ứng (js/fx.js): 'next' / 'prev' trượt theo hướng, 'fade' khi đổi Tháng ↔ Tuần
+    const slide = kind => {
+      if (!window.Fx || !Fx.full()) return;
+      main.dataset.slide = kind; clearTimeout(st.slT);
+      st.slT = setTimeout(() => { delete main.dataset.slide; }, 450);
+    };
     const addAt = (k, min) => { if (canAdd) editor(null, presetFor(k, min), after); };
     const view = id => { const r = DB.get(T, id); if (r) viewer(r, after); };
 
@@ -284,6 +294,7 @@
     const nav = dir => {
       const c = U.parseDate(st.cur);
       st.cur = dkey(st.mode === 'week' ? addD(c, 7 * dir) : new Date(c.getFullYear(), c.getMonth() + dir, 1));
+      slide(dir > 0 ? 'next' : 'prev');
       draw();
     };
     root.querySelectorAll('[data-nav]').forEach(b => { b.onclick = () => nav(+b.dataset.nav); });
@@ -350,6 +361,7 @@
     Cal._fit = () => { if (document.body.contains(root)) fit(); };
     if (!Cal._rz) { Cal._rz = true; let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => Cal._fit && Cal._fit(), 120); }); }
 
+    if (st.fx) { slide(st.fx); st.fx = null; }
     draw();
     if (document.fonts) document.fonts.ready.then(() => Cal._fit());
     if (openId) view(openId);

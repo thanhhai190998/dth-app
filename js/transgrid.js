@@ -45,6 +45,7 @@
 
     const all = SCHEMA.transDocRows(DB);
     const byKey = new Map(all.map(r => [r.id, r]));
+    if (window.Fx) Fx.owner = k => { const r = byKey.get(k); return r && r._tr ? r._tr.id : null; };
     // Tìm: khớp chữ ở mọi cột (kể cả cột đang ẩn)
     const cols = Grid.allCols(T).filter(c => c.n !== '_badge').map(c => c.n);
     const hay = new Map();
