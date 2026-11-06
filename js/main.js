@@ -316,6 +316,7 @@
     Music.init();
     window.addEventListener('hashchange', () => { App.closeDrawer(); route(); Music.sync(); });
     await route();
+    if (window.Cal) Cal.init();   // nhắc lịch (js/cal.js): kiểm tra mỗi 20 giây khi app đang mở
     if (fast) {
       API.me().then(u => {
         lsSet(ME_KEY, u);

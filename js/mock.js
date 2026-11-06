@@ -120,9 +120,19 @@
         { id: id(), Noi_dung: 'Thư mục dự án (demo)', Phan_loai: 'Công việc - LP1', Link: 'https://example.com' }
       ],
       Calendar: [
-        { id: id(), TenSuKien: 'Họp giao ban (demo)', NgayBatDau: day(2) + ' 08:00', NgayKetThuc: day(2) + ' 09:30' },
-        { id: id(), TenSuKien: 'Kiểm tra hiện trường T23 (demo)', NgayBatDau: day(6) + ' 13:30', NgayKetThuc: day(6) + ' 16:00' },
-        { id: id(), TenSuKien: 'Đào tạo an toàn (demo)', NgayBatDau: day(-4) + ' 08:00', NgayKetThuc: '' }
+        { id: id(), TenSuKien: 'Họp giao ban (demo)', NgayBatDau: day(2) + ' 08:00', NgayKetThuc: day(2) + ' 09:30', Nhac_truoc: '30 phút' },
+        { id: id(), TenSuKien: 'Kiểm tra hiện trường T23 (demo)', NgayBatDau: day(6) + ' 13:30', NgayKetThuc: day(6) + ' 16:00', Nhac_truoc: '1 ngày' },
+        { id: id(), TenSuKien: 'Đào tạo an toàn (demo)', NgayBatDau: day(-4) + ' 08:00', NgayKetThuc: '', Nhac_truoc: '' },
+        { id: id(), TenSuKien: 'Họp với PMC (demo)', NgayBatDau: day(0) + ' 09:00', NgayKetThuc: day(0) + ' 10:00', Nhac_truoc: '' },
+        { id: id(), TenSuKien: 'Duyệt comm sheet (demo)', NgayBatDau: day(0) + ' 09:30', NgayKetThuc: day(0) + ' 11:30', Nhac_truoc: '' },
+        { id: id(), TenSuKien: 'Cập nhật transmittals (demo)', NgayBatDau: day(-1) + ' 15:00', NgayKetThuc: day(-1) + ' 17:00', Nhac_truoc: '' },
+        { id: id(), TenSuKien: 'Cập nhật transmittals (demo)', NgayBatDau: day(1) + ' 15:00', NgayKetThuc: day(1) + ' 17:00', Nhac_truoc: '' },
+        { id: id(), TenSuKien: 'Làm báo cáo tuần (demo)', NgayBatDau: day(3) + ' 08:00', NgayKetThuc: day(4) + ' 17:00', Nhac_truoc: '1 giờ' },
+        { id: id(), TenSuKien: 'Học lý thuyết online C1 (demo)', NgayBatDau: day(8) + ' 07:00', NgayKetThuc: day(9) + ' 17:00', Nhac_truoc: '1 ngày' },
+        { id: id(), TenSuKien: 'Khám sức khoẻ định kỳ (demo)', NgayBatDau: day(12) + ' 12:00', NgayKetThuc: day(12) + ' 15:00', Nhac_truoc: '2 giờ' },
+        { id: id(), TenSuKien: 'Thi sát hạch C1 (demo)', NgayBatDau: day(40) + ' 07:00', NgayKetThuc: day(40) + ' 17:00', Nhac_truoc: '2 ngày' },
+        // Sắp bắt đầu (12 phút sau lúc tạo dữ liệu demo) → mở app là thấy thẻ nhắc lịch
+        { id: id(), TenSuKien: 'Gọi điện nhà thầu T22 (demo)', NgayBatDau: (d => U.iso(d) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'))(new Date(Date.now() + 12 * 60000)), NgayKetThuc: '', Nhac_truoc: '15 phút' }
       ],
       ALBUM: [
         { id: alb[0], Ten_album: 'Ảnh cá nhân', Mo_ta: '', Thu_tu: 1, Anh_bia: '' },

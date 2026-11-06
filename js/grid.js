@@ -82,7 +82,7 @@
   const sortVal = (t, r, n) => {
     const f = DB.field(t, n);
     if (isNum(f)) { const v = DB.val(t, r, n); return v === '' || v == null ? null : U.num(v); }
-    if (isDate(f)) return U.isoOf(DB.val(t, r, n)) || null;
+    if (isDate(f)) return (f.t === 'datetime' ? U.toLocalInput(DB.val(t, r, n)) : U.isoOf(DB.val(t, r, n))) || null;   // ngày giờ: so cả giờ
     const s = G.text(t, r, n); return s === '' ? null : s;
   };
   G.sort = (t, rows, n, dir) => {

@@ -500,9 +500,13 @@
     fields: [
       { n: 'TenSuKien', l: 'Tên sự kiện', t: 'text', req: true },
       { n: 'NgayBatDau', l: 'Bắt đầu', t: 'datetime', req: true },
-      { n: 'NgayKetThuc', l: 'Kết thúc', t: 'datetime' }
+      { n: 'NgayKetThuc', l: 'Kết thúc', t: 'datetime' },
+      // Cột mới (0.16.0): trống = theo mặc định nhắc trên máy (đặt ở trang Lịch) — js/cal.js
+      { n: 'Nhac_truoc', l: 'Nhắc trước', t: 'enum', opts: ['Không nhắc', 'Đúng giờ', '5 phút', '10 phút', '15 phút', '30 phút', '1 giờ', '2 giờ', '1 ngày', '2 ngày'],
+        hint: 'Để trống = theo mặc định nhắc trên máy này (đặt ở trang Lịch)' }
     ],
-    list: { tcols: ['TenSuKien', 'NgayBatDau', 'NgayKetThuc'], desc: true, type: 'calendar', sort: 'NgayBatDau' },
+    // Trang Lịch (js/cal.js): xem Tháng / Tuần; "Danh sách" = bảng với các cột dưới đây
+    list: { tcols: ['TenSuKien', 'NgayBatDau', 'NgayKetThuc', 'Nhac_truoc'], newCols: { v: 2, cols: ['Nhac_truoc'] }, desc: true, type: 'calendar', sort: 'NgayBatDau' },
     detail: { stats: ['NgayBatDau', 'NgayKetThuc'] }
   };
 

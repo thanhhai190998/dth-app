@@ -298,6 +298,7 @@
     if (it.type === 'dash') return Dash.render(it);
     if (it.type === 'music') return Music.render(it);
     if (it.table === 'Cong_viec' && window.TransGrid) return TransGrid.render(it);   // Transmittal: bảng kiểu Access, mỗi tài liệu 1 dòng
+    if (it.table === 'Calendar' && window.Cal) return Cal.render(it);                // Lịch: xem Tháng / Tuần / Danh sách (js/cal.js)
     const t = it.table, def = TT()[t], L = def.list || {};
     if (L.type !== 'gallery') return V.gridList(it);   // mọi danh sách khác (trừ album ảnh): bảng kiểu Access
     // Album ảnh: lưới ảnh như cũ

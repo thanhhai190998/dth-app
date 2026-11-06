@@ -1,10 +1,10 @@
 // Service worker: cho phép cài app và mở được khi mạng yếu.
 // Khi phát hành bản mới, tăng số phiên bản dưới đây để máy người dùng tải lại.
-const CACHE = 'app-v0.15.1';
+const CACHE = 'app-v0.16.0';
 const FONT_CACHE = 'fonts-v1';   // font giữ qua các phiên bản, không tải lại
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/config.js', 'js/util.js', 'js/icons.js', 'js/perm.js', 'js/vault.js', 'js/schema.js', 'js/api.js', 'js/mock.js',
-  'js/store.js', 'js/grid.js', 'js/views.js', 'js/transgrid.js', 'js/dash.js', 'js/admin.js', 'js/music.js', 'js/lock.js', 'js/main.js',
+  'js/store.js', 'js/grid.js', 'js/views.js', 'js/transgrid.js', 'js/cal.js', 'js/dash.js', 'js/admin.js', 'js/music.js', 'js/lock.js', 'js/main.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'img/hero-nha-may.webp'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))));
@@ -13,6 +13,16 @@ self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(ks.filter(k => /^app-v/.test(k) && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('message', e => { if (e.data === 'skip') self.skipWaiting(); });
+// Bấm thông báo nhắc lịch (js/cal.js) → đưa cửa sổ app lên trước và mở sự kiện; app đã đóng thì mở app tại sự kiện đó
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    const c = cs.find(x => x.url.startsWith(self.registration.scope));
+    if (c) { if (url) c.postMessage({ nav: url }); return c.focus(); }
+    return self.clients.openWindow(self.registration.scope + url);
+  }));
+});
 
 // Ưu tiên mạng (luôn có bản mới nhất), mất mạng hoặc chậm quá 8 giây thì dùng bản đã lưu.
 // Dữ liệu (Apps Script) và đăng nhập Google không đi qua cache.
