@@ -178,6 +178,8 @@
           `<input type="checkbox" class="sw" data-act="bio" ${Lock.bioOn() ? 'checked' : ''} aria-label="Mở khoá bằng vân tay / khuôn mặt">`)}</div>` : ''));
     h += group('Giao diện', srow(th === 'dark' ? 'moon' : 'sun', 'var(--g4)', 'Chế độ màu', 'Áp dụng trên máy này',
       `<div class="seg mini" data-act="theme">${[['', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, l]) => `<button type="button" class="segb ${v === th ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`)
+      + srow('palette', 'var(--g5)', 'Màu chủ đạo', 'Đang dùng: <b data-accl>' + esc(App.accent().l) + '</b> · áp dụng trên máy này',
+        `<div class="accs" data-act="accent">${App.accents.map(a => `<button type="button" class="accb ${a.k === App.accent().k ? 'on' : ''}" data-v="${a.k}" title="${esc(a.l)}" aria-label="${esc(a.l)}" style="--a1:${a.p};--a2:${a.p2}"></button>`).join('')}</div>`)
       + (window.Fx ? srow('star', 'var(--g4)', 'Hiệu ứng động', 'Áp dụng trên máy này · Nhẹ = chỉ hiệu ứng chuyển trang · Tắt = đứng yên, hợp máy yếu',
         `<div class="seg mini" data-act="fx">${[['full', 'Đầy đủ'], ['lite', 'Nhẹ'], ['off', 'Tắt']].map(([v, l]) => `<button type="button" class="segb ${v === Fx.level() ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`) : ''));
 
@@ -245,6 +247,12 @@
     on('reset', async () => { if (await U.confirm('Xoá toàn bộ dữ liệu demo và tạo lại dữ liệu mẫu?')) { API.demo.reset(); localStorage.removeItem('pwa-demo-user'); location.hash = '#/'; location.reload(); } });
     const tb = App.main.querySelector('[data-act="theme"]');
     tb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const go = () => { App.setTheme(b.dataset.v); A.settings(); }; if (window.Fx) Fx.themeSwap(go, e); else go(); };
+    const ab = App.main.querySelector('[data-act="accent"]');
+    if (ab) ab.onclick = e => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      const go = () => { App.setAccent(b.dataset.v); ab.querySelectorAll('.accb').forEach(x => x.classList.toggle('on', x === b)); const l = App.main.querySelector('[data-accl]'); if (l) l.textContent = App.accent().l; };
+      if (window.Fx) Fx.themeSwap(go, e); else go();
+    };
     const fb = App.main.querySelector('[data-act="fx"]');
     if (fb) fb.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; Fx.setLevel(b.dataset.v); fb.querySelectorAll('.segb').forEach(x => x.classList.toggle('on', x === b)); U.toast('Đã lưu', 'ok'); };
     on('update', async () => {

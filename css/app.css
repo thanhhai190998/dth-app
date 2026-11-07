@@ -84,7 +84,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 12px 12px 20px; overflow-x: c
 #hero { background: linear-gradient(90deg, var(--pri), var(--pri2)); color: #fff; }
 .hero-in { max-width: 1040px; margin: 0 auto; padding: 4px 16px 22px; }
 /* Trang chủ: ảnh nhà máy bên phải, mờ dần vào nền màu; nền chuyển xanh → tím → xanh đậm cho hợp trời chiều trong ảnh */
-#hero:has(.hero-img) { position: relative; overflow: hidden; background: linear-gradient(110deg, var(--pri) 0%, var(--pri2) 62%, #1f2f6b 100%); }
+#hero:has(.hero-img) { position: relative; overflow: hidden; background: linear-gradient(110deg, var(--pri) 0%, var(--pri2) 62%, color-mix(in srgb, var(--pri2) 40%, #0b1030) 100%); }
 .hero-img { position: absolute; top: 0; bottom: 0; right: 0; width: 64%; pointer-events: none;
   background: url(../img/hero-nha-may.webp) 50% 74% / cover;
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 34%); mask-image: linear-gradient(90deg, transparent 0%, #000 34%); }
@@ -107,7 +107,7 @@ body:has(#hero:not([hidden]) .hero-img) .top:not(.solid) { background: transpare
 .hrg { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; color: var(--pri); background: color-mix(in srgb, var(--pri) 12%, transparent); }
 @media (max-width: 759px) {   /* điện thoại: ảnh phủ cả khung, lớp màu bên trái cho chữ dễ đọc */
   .hero-img { width: 100%; -webkit-mask-image: none; mask-image: none;
-    background: linear-gradient(90deg, rgba(0, 96, 190, .9) 0%, rgba(60, 64, 170, .62) 55%, rgba(30, 40, 110, .2) 100%), url(../img/hero-nha-may.webp) 74% 64% / cover; }
+    background: linear-gradient(90deg, color-mix(in srgb, color-mix(in srgb, var(--pri) 78%, #000) 90%, transparent) 0%, color-mix(in srgb, color-mix(in srgb, var(--pri2) 85%, #000) 62%, transparent) 55%, color-mix(in srgb, color-mix(in srgb, var(--pri2) 45%, #000) 20%, transparent) 100%), url(../img/hero-nha-may.webp) 74% 64% / cover; }
   #hero:has(.hero-img) .hero-in { padding-top: 10px; }
   #hero:has(.hero-img) .hero-in.with-kpi { padding-bottom: 64px; }
   .hsub { font-size: 13.5px; }
@@ -1430,3 +1430,129 @@ tr.fx-flash td { animation: fxFlashTd 1.6s ease-out; }
 
 /* Đổi Sáng/Tối lan tròn (View Transitions) */
 .fx-vt::view-transition-old(root), .fx-vt::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+/* ===================================================================== */
+/*  LÀM MỚI GIAO DIỆN (0.17): nhiều màu hơn, có chiều sâu. Màu chủ đạo chọn ở Cài đặt (main.js App.setAccent → --pri / --pri2)
+/* ===================================================================== */
+:root { scrollbar-color: color-mix(in srgb, var(--pri) 38%, var(--line)) transparent; }
+::selection { background: color-mix(in srgb, var(--pri) 26%, transparent); }
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--pri) 70%, transparent); outline-offset: 2px; }
+
+/* Nền: dải màu loang 3 sắc (màu chính · màu thứ 2 · ngọc) */
+body.soft { background:
+  radial-gradient(1000px 540px at 88% -12%, color-mix(in srgb, var(--pri) 12%, transparent), transparent 70%),
+  radial-gradient(820px 600px at -14% 108%, color-mix(in srgb, var(--pri2) 11%, transparent), transparent 70%),
+  radial-gradient(760px 520px at 52% 118%, color-mix(in srgb, #14b8a6 7%, transparent), transparent 70%), var(--bg);
+  background-attachment: fixed; }
+
+/* Thanh tiêu đề: dải màu nhiều sắc, (Đầy đủ) trôi chậm; biểu tượng màu của mục đang xem cạnh tiêu đề */
+.top { background: linear-gradient(100deg, var(--pri) 0%, color-mix(in srgb, var(--pri) 45%, var(--pri2)) 42%, var(--pri2) 78%,
+  color-mix(in srgb, var(--pri2) 72%, #c026d3) 100%); background-size: 180% 100%; }
+.fx-full .top { animation: uiPan 24s ease-in-out infinite alternate; }
+@keyframes uiPan { to { background-position: 100% 0; } }
+.ttl { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.ttx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tchip { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--gc) 82%, #fff), var(--gc) 60%, color-mix(in srgb, var(--gc) 75%, #1e1b4b));
+  box-shadow: 0 3px 10px rgba(10, 20, 60, .22), inset 0 0 0 1px rgba(255, 255, 255, .28); }
+.tchip .ico { width: 16px; height: 16px; stroke-width: 2.1; }
+.fx-full.vin .tchip { animation: fxPop .55s var(--spring); }
+.avatar { background: linear-gradient(135deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .12)); border-color: rgba(255, 255, 255, .8);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .14); }
+
+/* Thẻ số liệu: ô biểu tượng màu đậm có dải màu + nền thẻ ánh màu ở góc; dashboard mỗi thẻ một màu */
+.kcard { --kc: var(--pri); }
+.kcard.warn { --kc: var(--bad); }
+.kcard.good { --kc: var(--ok); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+1) { --kc: var(--g0); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+2) { --kc: var(--g2); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+3) { --kc: var(--g1); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+4) { --kc: var(--g8); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+5) { --kc: var(--g7); }
+.dash .kpi-row > .kcard:not(.warn):not(.good):nth-child(6n+6) { --kc: var(--g4); }
+.soft .kcard { background: radial-gradient(140% 120% at 100% 0%, color-mix(in srgb, var(--kc) 11%, var(--card)) 0%, var(--card) 58%); }
+.soft .kcard .kic { color: #fff; background: linear-gradient(140deg, color-mix(in srgb, var(--kc) 80%, #fff), var(--kc) 55%, color-mix(in srgb, var(--kc) 72%, #1e1b4b));
+  box-shadow: 0 6px 14px -4px color-mix(in srgb, var(--kc) 65%, transparent), inset 0 0 0 1px rgba(255, 255, 255, .22); }
+.soft .kcard .kic .ico { stroke-width: 2; }
+.soft .kcard .kn { color: color-mix(in srgb, var(--kc) 40%, var(--text)); }
+.soft .kcard.warn .kn { color: var(--bad); }
+
+/* Thẻ dashboard: ô biểu tượng màu đậm theo màu thẻ (--gc), thanh ngang chuyển màu theo thẻ, cột biểu đồ chuyển màu */
+.soft .dc-h .gic, .soft .dhero .gic { color: #fff; background: linear-gradient(140deg, color-mix(in srgb, var(--gc) 82%, #fff), var(--gc) 55%, color-mix(in srgb, var(--gc) 72%, #1e1b4b));
+  box-shadow: 0 5px 12px -4px color-mix(in srgb, var(--gc) 60%, transparent); }
+.soft .dcard { background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--gc, var(--pri)) 6%, var(--card)), var(--card) 55%); }
+.soft .hb-t { border-radius: 999px; background: color-mix(in srgb, var(--gc, var(--pri)) 10%, transparent); overflow: hidden; }
+.soft .hb-f { border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--gc, var(--s1)) 55%, #fff), var(--gc, var(--s1)));
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--gc, var(--s1)) 55%, transparent); }
+.cxs0.s1 { stop-color: color-mix(in srgb, var(--s1) 62%, #fff); } .cxs1.s1 { stop-color: var(--s1); }
+.cxs0.s2 { stop-color: color-mix(in srgb, var(--s2) 62%, #fff); } .cxs1.s2 { stop-color: var(--s2); }
+.soft .cx-bar.s1 { fill: url(#cxg-s1); } .soft .cx-bar.s2 { fill: url(#cxg-s2); }
+.soft .legend i.s1 { background: linear-gradient(180deg, color-mix(in srgb, var(--s1) 62%, #fff), var(--s1)); }
+.soft .legend i.s2 { background: linear-gradient(180deg, color-mix(in srgb, var(--s2) 62%, #fff), var(--s2)); }
+
+/* Trang chi tiết: đầu thẻ ánh màu của nhóm + vầng sáng ở góc */
+.soft .dhero { position: relative; isolation: isolate; overflow: hidden;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gc, var(--pri)) 13%, var(--card)) 0%, var(--card) 52%); }
+.soft .dhero::after { content: ''; position: absolute; z-index: -1; right: -70px; top: -90px; width: 260px; height: 260px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--gc, var(--pri)) 20%, transparent), transparent); }
+
+/* Nút chính: dải màu, rê chuột nổi lên */
+.soft .btn:not(.ghost):not(.danger) { background: linear-gradient(135deg, var(--pri), color-mix(in srgb, var(--pri) 50%, var(--pri2))); }
+.soft .btn:not(.ghost):not(.danger):not(:disabled):hover { filter: brightness(1.06); transform: translateY(-1px);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--pri) 30%, transparent); }
+.soft .fab { background: linear-gradient(135deg, var(--pri), var(--pri2) 70%, color-mix(in srgb, var(--pri2) 70%, #c026d3)); }
+
+/* Ô nhập: viền sáng màu chủ đạo khi đang gõ */
+:where(.soft input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), .soft select, .soft textarea) { transition: border-color .18s, box-shadow .18s; }
+:where(.soft input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), .soft select, .soft textarea):focus {
+  outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--pri) 16%, transparent); }
+
+/* Bảng: dòng đang rê chuột có vạch màu bên trái */
+.soft .dt tbody tr[data-k]:hover td:first-child { box-shadow: inset 3px 0 0 var(--pri); }
+
+/* Thanh dưới (điện thoại): mục đang mở có viên màu sau biểu tượng */
+.soft .bnav a .ico { box-sizing: content-box; padding: 3px 15px; border-radius: 999px; transition: background .25s, color .25s; }
+.soft .bnav a.on .ico { background: linear-gradient(135deg, color-mix(in srgb, var(--pri) 18%, transparent), color-mix(in srgb, var(--pri2) 16%, transparent)); }
+.fx-full .bnav a.on .ico { animation: fxPop .5s var(--spring); }
+
+/* Màu chủ đạo (Cài đặt): ô tròn màu */
+.accs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.accb { width: 30px; height: 30px; padding: 0; border-radius: 50%; cursor: pointer; border: 2px solid var(--card);
+  background: linear-gradient(135deg, var(--a1), var(--a2)); box-shadow: 0 0 0 1px var(--line); transition: transform .2s var(--spring, ease), box-shadow .2s; }
+.accb:hover { transform: scale(1.12); }
+.accb.on { box-shadow: 0 0 0 2px var(--a1), 0 4px 12px color-mix(in srgb, var(--a1) 45%, transparent); }
+
+/* Màn đăng nhập: ảnh nhà máy dưới lớp màu, thẻ kính mờ, đốm sáng trôi */
+.login { overflow: hidden; background: linear-gradient(155deg, color-mix(in srgb, color-mix(in srgb, var(--pri) 80%, #0b1030) 86%, transparent) 0%,
+  color-mix(in srgb, color-mix(in srgb, var(--pri2) 70%, #0b1030) 80%, transparent) 50%, color-mix(in srgb, #070a1c 88%, transparent) 100%),
+  url(../img/hero-nha-may.webp) 62% 70% / cover; }
+.login::before, .lockscr::before { content: ''; position: absolute; inset: -20%; pointer-events: none; z-index: 0;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .18), transparent) 15% 20% / 40% 45% no-repeat,
+    radial-gradient(closest-side, rgba(125, 211, 252, .22), transparent) 85% 75% / 38% 42% no-repeat,
+    radial-gradient(closest-side, rgba(244, 114, 182, .18), transparent) 70% 12% / 26% 30% no-repeat; }
+.fx-full .login::before, .fx-full .lockscr::before { animation: fxDrift 14s ease-in-out infinite alternate; }
+.login-box { position: relative; z-index: 1; padding: 34px 28px 22px; border-radius: 26px; gap: 8px;
+  background: color-mix(in srgb, var(--card) 80%, transparent); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, .4); box-shadow: 0 30px 70px rgba(6, 12, 40, .38); }
+.login-box img { box-shadow: 0 12px 30px color-mix(in srgb, var(--pri) 45%, transparent); }
+.login-box h1 { font-size: 22px; background: linear-gradient(90deg, var(--pri), var(--pri2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.fx-full .login:not([hidden]) .login-box { animation: fxModal .6s var(--spring) both; }
+
+/* Màn khoá PIN: cùng nền ảnh + màu, phím kính mờ, chữ trắng */
+.lockscr { color: #fff; background: linear-gradient(160deg, color-mix(in srgb, var(--pri) 78%, #0b1030 22%) 0%, color-mix(in srgb, var(--pri2) 75%, #0b1030) 60%,
+  color-mix(in srgb, var(--pri2) 35%, #070a1c) 100%), url(../img/hero-nha-may.webp) 62% 70% / cover; }
+.lockscr::before { position: fixed; inset: -10%; }   /* fixed: không làm màn khoá (cuộn được) bị dư chỗ cuộn */
+.lk-in { position: relative; z-index: 1; }
+.lockscr :is(.lk-who small, .lk-sub, .lk-msg) { color: rgba(255, 255, 255, .78); }
+.lockscr .lk-msg.bad { color: #fecaca; }
+.lockscr :is(a, .linkbtn) { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+.lockscr .lk-dots i { border-color: rgba(255, 255, 255, .75); }
+.lockscr .lk-dots i.on { background: #fff; border-color: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, .6); }
+.lockscr .lk-keys button { color: #fff; background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .22);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.lockscr .lk-keys button:hover { background: rgba(255, 255, 255, .2); }
+.lockscr .lk-keys button:active { background: rgba(255, 255, 255, .32); }
+.lockscr .lk-keys .lk-del { background: none; border-color: transparent; color: rgba(255, 255, 255, .85); }
+.lockscr .lk-keys .lk-bio { background: rgba(255, 255, 255, .2); color: #fff; }
+.lockscr .btn.ghost { color: #fff; border-color: rgba(255, 255, 255, .45); }
+.lockscr .lk-who img { box-shadow: 0 10px 30px rgba(0, 0, 0, .35), 0 0 0 4px rgba(255, 255, 255, .16); }

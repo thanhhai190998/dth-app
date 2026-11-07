@@ -8,7 +8,8 @@
     main: document.getElementById('view'),
 
     head(title, opt = {}) {
-      document.getElementById('title').textContent = title;
+      const tic = App.headIcon();
+      document.getElementById('title').innerHTML = (tic ? `<span class="tchip" style="--gc:${tic.color}">${Icon(tic.ic, 'sm')}</span>` : '') + `<span class="ttx">${U.esc(title)}</span>`;
       document.getElementById('back').hidden = !opt.back;
       document.getElementById('logo').hidden = !!opt.back;
       document.querySelector('.top').classList.toggle('flat', !!opt.home);
@@ -16,6 +17,31 @@
       document.title = opt.home ? C.appName : title + ' · ' + C.appName;
       App.lockIcon();
       App.navActive();
+    },
+    // Biểu tượng + màu nhóm của trang đang xem (thanh tiêu đề), theo menu trong schema.js
+    headIcon() {
+      const p = (location.hash.replace(/^#/, '').split('?')[0]).split('/').filter(Boolean).map(s => { try { return decodeURIComponent(s); } catch (e) { return s; } });
+      if (p[0] === 'settings') return { ic: 'gear', color: 'var(--g6)' };
+      if (p[0] === 'admin') return { ic: 'users', color: 'var(--g7)' };
+      const k = p[1]; if (!k || !window.SCHEMA) return null;
+      if (/^HINH_ANH|^ALBUM$/.test(k)) return { ic: 'image', color: 'var(--g5)' };
+      for (const g of SCHEMA.groups) for (const it of g.items) if (it.key === k || it.table === k) return { ic: it.ic, color: g.color };
+      return null;
+    },
+    // Màu chủ đạo (riêng từng máy, localStorage pwa-accent): p = màu chính, p2 = màu thứ 2 của dải màu, dk = màu sẫm mép trên ảnh trang chủ
+    accents: [
+      { k: '', l: 'Xanh dương', p: C.primaryColor, p2: '#5b5bd6', dk: '#0454a4' },
+      { k: 'violet', l: 'Tím', p: '#7c3aed', p2: '#c026d3', dk: '#3b1a7a' },
+      { k: 'teal', l: 'Xanh ngọc', p: '#0d9488', p2: '#2563eb', dk: '#0f4f4a' },
+      { k: 'rose', l: 'Hồng', p: '#e11d48', p2: '#9333ea', dk: '#7a1230' },
+      { k: 'sunset', l: 'Cam hoàng hôn', p: '#ea580c', p2: '#db2777', dk: '#7c2d12' }
+    ],
+    accent() { let k = ''; try { k = localStorage.getItem('pwa-accent') || ''; } catch (e) { /* bỏ qua */ } return App.accents.find(a => a.k === k) || App.accents[0]; },
+    setAccent(k) {
+      try { if (k) localStorage.setItem('pwa-accent', k); else localStorage.removeItem('pwa-accent'); } catch (e) { /* bỏ qua */ }
+      const a = App.accent(), st = document.documentElement.style;
+      st.setProperty('--pri', a.p); st.setProperty('--pri2', a.p2);
+      if (App.topTint) App.topTint();
     },
     // Vùng nền màu phía trên (chỉ trang chủ)
     hero(html) { const h = document.getElementById('hero'); h.innerHTML = html; h.hidden = !html; if (App.topTint) App.topTint(); },
@@ -285,6 +311,7 @@
   async function start() {
     loadFont();
     document.documentElement.style.setProperty('--pri', C.primaryColor);
+    App.setAccent(App.accent().k);   // màu chủ đạo đã chọn trên máy này
     document.getElementById('appname').textContent = C.appName;
     App.footer();
     if (C.mode === 'demo') document.body.classList.add('is-demo');
@@ -368,7 +395,7 @@
   // giống mép trên ảnh cho liền một khối, trang khác / đã cuộn thì về màu chính.
   const topBar = document.querySelector('.top'), tcMeta = document.querySelector('meta[name="theme-color"]'), TC = tcMeta && tcMeta.content;
   App.topTint = () => {
-    const solid = window.scrollY > 4, tc = !solid && document.querySelector('#hero:not([hidden]) .hero-img') ? '#0454a4' : TC;
+    const a = App.accent(), solid = window.scrollY > 4, tc = !solid && document.querySelector('#hero:not([hidden]) .hero-img') ? a.dk : (a.k ? a.p : TC);
     topBar.classList.toggle('solid', solid);
     if (tcMeta && tcMeta.content !== tc) tcMeta.content = tc;
   };

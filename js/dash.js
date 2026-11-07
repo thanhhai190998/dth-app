@@ -55,7 +55,7 @@
   const tile = k => `<${k.href ? `a href="${k.href}"` : 'div'} class="kcard ${k.cls || ''}">
     <span class="kic">${Icon(k.ic)}</span><span class="kn">${esc(k.v)}${k.u ? `<small>${esc(k.u)}</small>` : ''}</span><span class="kl">${esc(k.l)}</span>
     ${k.delta ? `<span class="kd ${k.delta.cls}">${esc(k.delta.t)}</span>` : ''}</${k.href ? 'a' : 'div'}>`;
-  const card = (title, ic, color, body, extra = '') => `<section class="card dcard"><div class="dc-h"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
+  const card = (title, ic, color, body, extra = '') => `<section class="card dcard" style="--gc:${color}"><div class="dc-h"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
     <h3>${esc(title)}</h3>${extra}</div>${body}</section>`;
   const none = msg => `<div class="dnone">${Icon('check', 'sm')} ${esc(msg || 'Không có')}</div>`;
 
@@ -116,7 +116,7 @@
       s += `<rect x="${pl + band * i}" y="${pt}" width="${band}" height="${H - pt - pb}" class="cx-hit" data-i="${i}" tabindex="0"/>`;
     });
     el.innerHTML = `<div class="legend">${series.map(se => `<span><i class="${se.cls}"></i>${esc(se.name)}</span>`).join('')}</div>
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.title || '')}">${s}</svg>
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.title || '')}"><defs>${series.map(se => `<linearGradient id="cxg-${se.cls}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cxs0 ${se.cls}"/><stop offset="1" class="cxs1 ${se.cls}"/></linearGradient>`).join('')}</defs>${s}</svg>
       <div class="ttip" hidden></div>`;
     const tip = el.querySelector('.ttip');
     const show = (hit, i) => {
@@ -208,16 +208,16 @@
       series: [{ name: 'Thu', cls: 's1', values: ms.map(m => sumIn('Thu', [m])) }, { name: 'Chi', cls: 's2', values: ms.map(m => sumIn('Chi', [m])) }],
       full: U.money
     };
-    h += card('Thu và chi theo tháng', 'chart', 'var(--g3)', columns(cfg), '<button class="dtbl" type="button">Bảng</button>');
+    h += card('Thu và chi theo tháng', 'chart', 'var(--g0)', columns(cfg), '<button class="dtbl" type="button">Bảng</button>');
 
     const cat = new Map();
     tc.filter(x => x.Loai === 'Chi' && ms.includes(U.month(x.NgayGD))).forEach(x => cat.set(x.DanhMuc || '(khác)', (cat.get(x.DanhMuc || '(khác)') || 0) + U.num(x.SoTien)));
-    h += card('Chi theo danh mục', 'send', 'var(--g3)',
+    h += card('Chi theo danh mục', 'send', 'var(--g5)',
       bars([...cat].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value), { cls: 's2', fmt: v => compact(v) + ' ₫', share: true }));
     h += card('Số dư theo tài khoản', 'bank', 'var(--g3)',
       bars(acc.map(r => ({ label: DB.title('TAIKHOAN_TAICHINH', r), value: bal(r), href: '#/r/TAIKHOAN_TAICHINH/' + encodeURIComponent(r.ID) })).sort((a, b) => b.value - a.value), { fmt: v => compact(v) + ' ₫' }));
     const owing = ng.filter(r => U.num(DB.val('NGUOI_VAY_MUON', r, 'HoNoMinh')) > 0 || U.num(DB.val('NGUOI_VAY_MUON', r, 'MinhNoHo')) > 0);
-    h += card('Đang có nợ', 'users', 'var(--g3)', owing.length ? Views.renderRows('NGUOI_VAY_MUON', owing, { flat: true, compact: true }) : none('Không ai'));
+    h += card('Đang có nợ', 'users', 'var(--g4)', owing.length ? Views.renderRows('NGUOI_VAY_MUON', owing, { flat: true, compact: true }) : none('Không ai'));
     return h;
   }
 
@@ -272,7 +272,7 @@
 
     const left = r => U.daysBetween(U.today(), DB.val('Cong_viec', r, 'Deadline'));
     const waiting = pending.slice().sort((a, b) => left(a) - left(b));
-    h += card('Chờ trả lời — gấp nhất trước', 'box', 'var(--g4)', waiting.length ? Views.renderRows('Cong_viec', waiting, { flat: true, sortBy: 'none', compact: true }) : none('Không có transmittal nào đang chờ'));
+    h += card('Chờ trả lời — gấp nhất trước', 'box', 'var(--g5)', waiting.length ? Views.renderRows('Cong_viec', waiting, { flat: true, sortBy: 'none', compact: true }) : none('Không có transmittal nào đang chờ'));
 
     const cfg = {
       title: 'Transmittal hoàn thành theo tháng', labels: last12.map(mLabel), titles: last12.map(m => 'Tháng ' + m.slice(5) + '/' + m.slice(0, 4)), stacked: true, fmt: v => nf(v, 0), full: v => nf(v, 0),
@@ -281,21 +281,21 @@
         { name: 'Trễ hạn', cls: 's2', values: last12.map(m => done.filter(r => U.month(r.Ngay_hoan_thanh) === m && stt(r) === 'Trễ hạn').length) }
       ]
     };
-    h += card('Hoàn thành 12 tháng qua', 'chart', 'var(--g4)', done.length ? columns(cfg) : none('Chưa có transmittal hoàn thành'), done.length ? '<button class="dtbl" type="button">Bảng</button>' : '');
+    h += card('Hoàn thành 12 tháng qua', 'chart', 'var(--g3)', done.length ? columns(cfg) : none('Chưa có transmittal hoàn thành'), done.length ? '<button class="dtbl" type="button">Bảng</button>' : '');
 
     if (st.g === '*' && goiAll.length) {
       const byG = goiAll.map(g => ({ label: g, value: pending.filter(r => r.Goi_thau === g).length, href: '#/i/Cong_viec?Goi_thau=' + encodeURIComponent(g) + '&Status=' + encodeURIComponent('Đang xử lý'), goi: g })).filter(x => x.value);
-      h += card('Đang xử lý theo gói', 'folder', 'var(--g4)', bars(byG));
+      h += card('Đang xử lý theo gói', 'folder', 'var(--g0)', bars(byG));
     }
     const countBy = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r) || '(trống)'; m.set(k, (m.get(k) || 0) + 1); }); return [...m].map(([label, value]) => ({ label, value })); };
     const order = (rows, opts) => rows.sort((a, b) => (opts.indexOf(a.label) + 1 || 99) - (opts.indexOf(b.label) + 1 || 99));
     if (can('Document_no_In')) {
       const din = DB.rows('Document_no_In').filter(r => (st.g === '*' && allTime) || trIds.has(String(r.id_transmittal)));
-      h += card('Tài liệu đến theo mục đích', 'inbox', 'var(--g4)', bars(order(countBy(din, r => r.Purpose), DB.field('Document_no_In', 'Purpose').opts), { share: true }));
+      h += card('Tài liệu đến theo mục đích', 'inbox', 'var(--g8)', bars(order(countBy(din, r => r.Purpose), DB.field('Document_no_In', 'Purpose').opts), { share: true }));
     }
     if (can('Document_no_Out')) {
       const dout = DB.rows('Document_no_Out').filter(r => (st.g === '*' && allTime) || trIds.has(String(r.id_transmittal)));
-      h += card('Tài liệu đi theo status', 'send', 'var(--g4)', bars(order(countBy(dout, r => r.Status), DB.field('Document_no_Out', 'Status').opts), { share: true }));
+      h += card('Tài liệu đi theo status', 'send', 'var(--g1)', bars(order(countBy(dout, r => r.Status), DB.field('Document_no_Out', 'Status').opts), { share: true }));
     }
     return h;
   }
@@ -317,7 +317,7 @@
     }
     if (can('Cong_viec')) {
       const left = r => U.daysBetween(U.today(), DB.val('Cong_viec', r, 'Deadline'));
-      add('Transmittal gấp', 'quá hạn hoặc còn ≤ 3 ngày', 'box', 'var(--g4)', [{ t: 'Cong_viec',
+      add('Transmittal gấp', 'quá hạn hoặc còn ≤ 3 ngày', 'box', 'var(--g5)', [{ t: 'Cong_viec',
         rows: DB.rows('Cong_viec').filter(r => SCHEMA.transPending(r) && left(r) <= 3).sort((a, b) => left(a) - left(b)) }]);
     }
     if (can('GIAODICH_VAY_MUON')) {
@@ -326,8 +326,8 @@
         rows: DB.rows('GIAODICH_VAY_MUON').filter(r => r.NgayHenTra && owing(r.NguoiID) > 0 && U.daysBetween(U.today(), r.NgayHenTra) <= 14)
           .sort((a, b) => U.daysBetween(b.NgayHenTra, a.NgayHenTra)) }]);
     }
-    if (can('Cong_viec_duoc_giao')) add('Task đang xử lý', '', 'check', 'var(--g4)', [{ t: 'Cong_viec_duoc_giao', rows: DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý') }]);
-    if (can('Calendar')) add('Lịch sắp tới', '7 ngày tới', 'calendar', 'var(--g4)', [{ t: 'Calendar',
+    if (can('Cong_viec_duoc_giao')) add('Task đang xử lý', '', 'check', 'var(--g1)', [{ t: 'Cong_viec_duoc_giao', rows: DB.rows('Cong_viec_duoc_giao').filter(r => r.Trang_thai === 'Đang xử lý') }]);
+    if (can('Calendar')) add('Lịch sắp tới', '7 ngày tới', 'calendar', 'var(--g8)', [{ t: 'Calendar',
       rows: DB.rows('Calendar').filter(r => { const n = U.daysBetween(U.today(), r.NgayBatDau); return n >= 0 && n <= 7; }) }]);
     if (can('TAIKHOAN_MATKHAU')) add('Mật khẩu nên đổi', 'lâu hơn ' + C.passwordAgeWarnDays + ' ngày chưa đổi', 'key', 'var(--g6)', [{ t: 'TAIKHOAN_MATKHAU',
       rows: DB.rows('TAIKHOAN_MATKHAU').filter(r => r.TrangThai !== 'Dừng hoạt động' && r.NgayDoiGanNhat && U.daysBetween(r.NgayDoiGanNhat, U.today()) > C.passwordAgeWarnDays) }]);
