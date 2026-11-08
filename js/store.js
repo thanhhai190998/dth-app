@@ -111,6 +111,7 @@
       Object.keys(res).forEach(t => {
         const rows = res[t];
         if (!Array.isArray(rows)) { console.warn(t, rows && rows.error); if (!this.data[t]) this.data[t] = []; return; }
+        if (this.data[t] && window.Outbox && Outbox.busy(t)) return;   // còn thay đổi đang lưu nền (outbox.js) → giữ dữ liệu trên máy
         const had = this.data[t];
         this.fresh.add(t);
         if (had && JSON.stringify(had) === JSON.stringify(rows)) return;
@@ -202,13 +203,48 @@
       }
     },
 
-    async add(t, row) {
+    // Ghi dữ liệu: đổi ngay trên máy rồi gửi lên máy chủ ngầm (js/outbox.js) → bấm Lưu không phải chờ máy chủ.
+    // Trả về dòng trên máy sau khi ghi (sửa = gộp dòng cũ + phần gửi lên, như máy chủ trả).
+    // label: tên việc hiện ở ô "Chưa lưu được…" nếu máy chủ báo lỗi.
+    async add(t, row, label) {
+      if (!window.Outbox) return this.addNow(t, row);
+      const r = { ...row };
+      Outbox.push(label || 'Thêm ' + this.what(t, r), [{ fn: 'add', t, row: r }]);
+      return this.get(t, r[this.keyField(t)]) || r;
+    },
+    async update(t, row, label) {
+      if (!window.Outbox) return this.updateNow(t, row);
+      const r = { ...row }, k = r[this.keyField(t)];
+      Outbox.push(label || 'Sửa ' + this.what(t, { ...(this.get(t, k) || {}), ...r }), [{ fn: 'update', t, row: r }]);
+      return this.get(t, k) || r;
+    },
+    async remove(t, key, label) {
+      if (!window.Outbox) return this.removeNow(t, key);
+      Outbox.push(label || 'Xoá ' + this.what(t, this.get(t, key) || {}), [{ fn: 'remove', t, key }]);
+    },
+    what(t, r) { let s = ''; try { s = this.title(t, r); } catch (e) { /* bỏ qua */ } return (T()[t].label || t) + (s ? ' "' + s + '"' : ''); },
+    // Đổi dữ liệu trên máy (outbox.js gọi): gộp theo khoá; bảng chưa tải về máy thì bỏ qua (lần tải sau sẽ có)
+    localPut(t, rows) {
+      if (!this.data[t] || !rows || !rows.length) return;
+      const kf = this.keyField(t), by = new Map(rows.filter(Boolean).map(r => [String(r[kf]), r]));
+      const arr = this.data[t].map(r => { const k = String(r[kf]), n = by.get(k); if (!n) return r; by.delete(k); return { ...r, ...n }; });
+      this.data[t] = by.size ? arr.concat([...by.values()].map(r => ({ ...r }))) : arr;
+      this.persist(t);
+    },
+    localDel(t, keys) {
+      if (!this.data[t]) return;
+      const kf = this.keyField(t), drop = new Set(keys.map(String));
+      this.data[t] = this.data[t].filter(r => !drop.has(String(r[kf])));
+      this.persist(t);
+    },
+    // Ghi thẳng (chờ máy chủ) — chỉ dùng khi không có outbox.js
+    async addNow(t, row) {
       const saved = await API.add(t, this.keyField(t), row);
       (this.data[t] = this.data[t] || []).push(saved);
       this.persist(t);
       return saved;
     },
-    async update(t, row) {
+    async updateNow(t, row) {
       const saved = await API.update(t, this.keyField(t), row);
       const arr = this.data[t] || [], kf = this.keyField(t);
       const i = arr.findIndex(r => String(r[kf]) === String(saved[kf]));
@@ -217,7 +253,7 @@
       this.persist(t);
       return saved;
     },
-    async remove(t, key) {
+    async removeNow(t, key) {
       await API.remove(t, this.keyField(t), key);
       const kf = this.keyField(t);
       this.data[t] = (this.data[t] || []).filter(r => String(r[kf]) !== String(key));

@@ -291,6 +291,10 @@
   }
   // Đăng xuất: xoá cả dữ liệu lưu tạm trên máy (bảng, ảnh, thông tin tài khoản)
   App.signOut = async () => {
+    if (window.Outbox && Outbox.pending()) {   // còn thay đổi đang lưu nền → đăng xuất là mất
+      if (!(await U.confirm(`Còn ${Outbox.pending()} thay đổi chưa lưu lên máy chủ — đăng xuất sẽ bỏ các thay đổi này. Vẫn đăng xuất?`))) return;
+      Outbox.clear();
+    }
     await DB.wipe();
     try { localStorage.removeItem(ME_KEY); localStorage.removeItem(VAULT_KEY); } catch (e) { /* bỏ qua */ }
     await API.signOut(); location.hash = '#/'; location.reload();
@@ -344,6 +348,7 @@
     Music.init();
     window.addEventListener('hashchange', () => { App.closeDrawer(); route(); Music.sync(); });
     await route();
+    if (window.Outbox) Outbox.resume();   // còn thay đổi lưu nền chưa gửi xong (tắt app giữa chừng) → gửi tiếp
     if (window.Cal) Cal.init();   // nhắc lịch (js/cal.js): kiểm tra mỗi 20 giây khi app đang mở
     if (fast) {
       API.me().then(u => {
@@ -385,7 +390,13 @@
     // Chỉ tải lại khi CẬP NHẬT bản mới (không tải lại ở lần mở đầu tiên — tránh cắt ngang lúc đăng nhập)
     const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      // Bản app mới: đợi gửi xong thay đổi đang lưu nền rồi mới tải lại (hàng đợi vẫn giữ trên máy nếu đang lỗi)
+      const go = () => { if (window.Outbox) Outbox.quiet = true; location.reload(); };
+      if (window.Outbox && Outbox.pending()) Outbox.idle().then(go); else go();
+    });
   }
 
   // Chiều cao thật của thanh trên / vùng chào (trang chủ) / chân trang → biến CSS cho main (min-height): trang ngắn thì chân trang

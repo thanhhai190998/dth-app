@@ -235,6 +235,7 @@
       setTimeout(() => App.signOut(), 800);
     });
     on('wipe', async () => {
+      if (window.Outbox && Outbox.pending()) return U.toast('Đang lưu thay đổi lên máy chủ — đợi lưu xong rồi hãy xoá dữ liệu tạm', 'err');
       if (!await U.confirm('Xoá dữ liệu lưu tạm trên máy này (danh sách, ảnh nhỏ)? Dữ liệu trên Google Sheets không bị ảnh hưởng; lần mở sau sẽ tải lại.')) return;
       await DB.wipe(); U.toast('Đã xoá dữ liệu lưu tạm', 'ok'); location.reload();
     });
