@@ -55,7 +55,7 @@
   const tile = k => `<${k.href ? `a href="${k.href}"` : 'div'} class="kcard ${k.cls || ''}">
     <span class="kic">${Icon(k.ic)}</span><span class="kn">${esc(k.v)}${k.u ? `<small>${esc(k.u)}</small>` : ''}</span><span class="kl">${esc(k.l)}</span>
     ${k.delta ? `<span class="kd ${k.delta.cls}">${esc(k.delta.t)}</span>` : ''}</${k.href ? 'a' : 'div'}>`;
-  const card = (title, ic, color, body, extra = '') => `<section class="card dcard" style="--gc:${color}"><div class="dc-h"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
+  const card = (title, ic, color, body, extra = '', cls = '') => `<section class="card dcard ${cls}" style="--gc:${color}"><div class="dc-h"><span class="gic" style="--gc:${color}">${Icon(ic)}</span>
     <h3>${esc(title)}</h3>${extra}</div>${body}</section>`;
   const none = msg => `<div class="dnone">${Icon('check', 'sm')} ${esc(msg || 'Không có')}</div>`;
 
@@ -81,7 +81,7 @@
     const max = niceMax(Math.max(...totals, 0));
     const band = (W - pl - pr) / n;
     const k = series.length;
-    const bw = Math.min(24, stacked ? band * 0.55 : (band * 0.72 - (k - 1) * 2) / k);
+    const bw = Math.min(24, stacked ? band * 0.55 : (band * (k >= 3 ? 0.84 : 0.72) - (k - 1) * 2) / k);   // ≥ 3 cột/nhóm: nhóm rộng hơn cho cột đỡ mảnh
     const gw = stacked ? bw : k * bw + (k - 1) * 2;
     const yv = v => pt + (H - pt - pb) * (1 - v / max);
     const top = (x, y, w, h, r) => { r = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; };
@@ -111,14 +111,18 @@
       // Nhãn giá trị chỉ cho tháng gần nhất (không ghi số lên mọi cột)
       if (i === n - 1 && totals[i] > 0) {
         if (stacked) s += `<text x="${x0 + bw / 2}" y="${yv(totals[i]) - 6}" class="cx-val" text-anchor="middle">${esc(fmt(totals[i]))}</text>`;
+        // Cột nhóm: nhãn đè nhau thì bỏ sau khi vẽ (xem bằng tooltip / Bảng)
         else series.forEach((se, j) => { if (se.values[i]) s += `<text x="${x0 + j * (bw + 2) + bw / 2}" y="${yv(se.values[i]) - 6}" class="cx-val" text-anchor="middle">${esc(fmt(se.values[i]))}</text>`; });
       }
       s += `<rect x="${pl + band * i}" y="${pt}" width="${band}" height="${H - pt - pb}" class="cx-hit" data-i="${i}" tabindex="0"/>`;
     });
     // 1 series: không cần chú giải (tiêu đề thẻ đã gọi tên)
-    el.innerHTML = `${series.length > 1 ? `<div class="legend">${series.map(se => `<span><i class="${se.cls}"></i>${esc(se.name)}</span>`).join('')}</div>` : ''}
+    // cfg.legendSum: ghi tổng của từng series cạnh tên trong chú giải
+    el.innerHTML = `${series.length > 1 ? `<div class="legend">${series.map(se => `<span><i class="${se.cls}"></i>${esc(se.name)}${cfg.legendSum ? `<b>${esc(full(se.values.reduce((a, b) => a + b, 0)))}</b>` : ''}</span>`).join('')}</div>` : ''}
       <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.title || '')}"><defs>${series.map(se => `<linearGradient id="cxg-${se.cls}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cxs0 ${se.cls}"/><stop offset="1" class="cxs1 ${se.cls}"/></linearGradient>`).join('')}</defs>${s}</svg>
       <div class="ttip" hidden></div>`;
+    const vals = [...el.querySelectorAll('.cx-val')].map(t => t.getBBox());
+    if (vals.some((v, j) => j && v.x < vals[j - 1].x + vals[j - 1].width + 2)) el.querySelectorAll('.cx-val').forEach(t => t.remove());
     const tip = el.querySelector('.ttip');
     const show = (hit, i) => {
       tip.replaceChildren();
@@ -321,6 +325,21 @@
     if (can('Document_no_Out')) {
       const dout = DB.rows('Document_no_Out').filter(r => (st.g === '*' && allTime) || trIds.has(String(r.id_transmittal)));
       h += card('Tài liệu đi theo status', 'send', 'var(--g1)', bars(order(countBy(dout, r => r.Status), DB.field('Document_no_Out', 'Status').opts), { share: true }));
+    }
+
+    // Kiện hàng đã thống kê / mở / kiểm đếm theo tháng hoàn thành (cùng lọc gói + thời gian như ô Vật tư); thẻ rộng cả hàng
+    if (can('Kiem_tra_hang')) {
+      const KH = [{ v: 'Thống kê Vật tư', name: 'Thống kê', cls: 's1' }, { v: 'Mở kiện', name: 'Mở kiện', cls: 's2' }, { v: 'Kiểm đếm', name: 'Kiểm đếm', cls: 's3' }];
+      const khDone = vtDone.filter(r => last12.includes(U.month(r.Ngay_hoan_thanh)));
+      const kcfg = {
+        title: 'Số kiện hàng đã thống kê, mở kiện, kiểm đếm theo tháng', labels: last12.map(mLabel), titles: last12.map(m => 'Tháng ' + m.slice(5) + '/' + m.slice(0, 4)),
+        fmt: v => nf(v, 0), full: v => nf(v, 0), legendSum: true,
+        series: KH.map(k => ({ name: k.name, cls: k.cls, values: last12.map(m => khDone.filter(r => r.Phan_loai === k.v && U.month(r.Ngay_hoan_thanh) === m).reduce((s, r) => s + U.num(r.So_luong), 0)) }))
+      };
+      const khN = kcfg.series.reduce((s, se) => s + se.values.reduce((a, b) => a + b, 0), 0);
+      h += card('Kiện hàng 12 tháng qua', 'inspect', 'var(--g4)',
+        khN ? `<div class="dnote">Số kiện đã thống kê, đã mở, đã kiểm đếm · theo tháng hoàn thành</div>${columns(kcfg)}` : none('Chưa có lần kiểm tra vật tư nào hoàn thành'),
+        khN ? '<button class="dtbl" type="button">Bảng</button>' : '', 'dwide');
     }
     return h;
   }

@@ -7,7 +7,7 @@
   --pri2: #5b5bd6;   /* màu thứ 2 của dải màu thanh trên */
   /* Màu từng nhóm trên trang chủ */
   --g0: #3b82f6; --g1: #8b5cf6; --g2: #0d9488; --g3: #16a34a; --g4: #ea8a0c; --g5: #db2777; --g6: #64748b; --g7: #6366f1; --g8: #0891b2;
-  --s1: #2a78d6; --s2: #eb6834;   /* màu series biểu đồ (đã kiểm tra chuẩn mù màu) */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;   /* màu series biểu đồ (đã kiểm tra chuẩn mù màu) */
   color-scheme: light;
 }
 /* Giao diện tối: theo máy (mặc định) hoặc chọn tay trong Cài đặt (data-theme trên <html>) */
@@ -15,12 +15,12 @@
   :root:not([data-theme="light"]) { --bg: #0f131a; --card: #19202b; --text: #e6e9f0; --muted: #97a0b2; --line: #2a3242; --hover: #212a38;
     --ok: #3cc480; --bad: #ff6b6b; --warn: #f0b13a; --info: #5aa8ff; color-scheme: dark;
     --g0: #60a5fa; --g1: #a78bfa; --g2: #2dd4bf; --g3: #4ade80; --g4: #fbbf24; --g5: #f472b6; --g6: #94a3b8; --g7: #818cf8; --g8: #22d3ee;
-    --s1: #3987e5; --s2: #d95926; }
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; }
 }
 :root[data-theme="dark"] { --bg: #0f131a; --card: #19202b; --text: #e6e9f0; --muted: #97a0b2; --line: #2a3242; --hover: #212a38;
   --ok: #3cc480; --bad: #ff6b6b; --warn: #f0b13a; --info: #5aa8ff; color-scheme: dark;
   --g0: #60a5fa; --g1: #a78bfa; --g2: #2dd4bf; --g3: #4ade80; --g4: #fbbf24; --g5: #f472b6; --g6: #94a3b8; --g7: #818cf8; --g8: #22d3ee;
-  --s1: #3987e5; --s2: #d95926; }
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; }
 /* Chọn "Sáng": cấm trình duyệt tự làm tối trang (Chrome Android "Làm tối trang web", Samsung Internet…) */
 :root[data-theme="light"] { color-scheme: only light; }
 .ico { width: 20px; height: 20px; flex: none; display: block; }
@@ -624,8 +624,8 @@ input.sw:checked::after { transform: translateX(18px); }
 
 /* ---- Dashboard ---- */
 /* Màu series đã kiểm tra chuẩn mù màu (xanh dương / cam), sáng và tối */
-/* --s1 / --s2 khai báo ở đầu file (cùng khối màu sáng / tối) */
-.s1 { fill: var(--s1); background: var(--s1); } .s2 { fill: var(--s2); background: var(--s2); }
+/* --s1 / --s2 / --s3 khai báo ở đầu file (cùng khối màu sáng / tối) */
+.s1 { fill: var(--s1); background: var(--s1); } .s2 { fill: var(--s2); background: var(--s2); } .s3 { fill: var(--s3); background: var(--s3); }
 .dfilter { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
 .dfilter::-webkit-scrollbar { display: none; }
 .kpi-row.k4 { margin: 0 0 12px; }
@@ -659,6 +659,7 @@ input.sw:checked::after { transform: translateX(18px); }
 .cx-hit { fill: transparent; cursor: pointer; outline: none; }
 .cx-hit.on, .cx-hit:focus { fill: color-mix(in srgb, var(--text) 6%, transparent); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.legend b { margin-left: 5px; color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .ttip { position: absolute; z-index: 5; min-width: 130px; padding: 8px 10px; border-radius: 10px; pointer-events: none;
   background: var(--card); border: 1px solid var(--line); box-shadow: 0 8px 22px rgba(15, 23, 42, .18); font-size: 12.5px; }
@@ -686,7 +687,7 @@ a.hb:hover { background: var(--hover); }
 .dnone .ico { color: var(--ok); }
 .dok { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; color: var(--muted); font-size: 13.5px; }
 .dok .ico { color: var(--ok); }
-@media (min-width: 900px) { .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; } .dash > .dhero2, .dash > .dfilter, .dash > .dbar, .dash > .kpi-row { grid-column: 1 / -1; } }
+@media (min-width: 900px) { .dash { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; } .dash > .dhero2, .dash > .dfilter, .dash > .dbar, .dash > .kpi-row, .dash > .dwide { grid-column: 1 / -1; } }
 
 /* ---- Khác ---- */
 .empty { text-align: center; color: var(--muted); padding: 30px 12px; }
@@ -1487,9 +1488,11 @@ body.soft { background:
   box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--gc, var(--s1)) 55%, transparent); }
 .cxs0.s1 { stop-color: color-mix(in srgb, var(--s1) 62%, #fff); } .cxs1.s1 { stop-color: var(--s1); }
 .cxs0.s2 { stop-color: color-mix(in srgb, var(--s2) 62%, #fff); } .cxs1.s2 { stop-color: var(--s2); }
-.soft .cx-bar.s1 { fill: url(#cxg-s1); } .soft .cx-bar.s2 { fill: url(#cxg-s2); }
+.cxs0.s3 { stop-color: color-mix(in srgb, var(--s3) 62%, #fff); } .cxs1.s3 { stop-color: var(--s3); }
+.soft .cx-bar.s1 { fill: url(#cxg-s1); } .soft .cx-bar.s2 { fill: url(#cxg-s2); } .soft .cx-bar.s3 { fill: url(#cxg-s3); }
 .soft .legend i.s1 { background: linear-gradient(180deg, color-mix(in srgb, var(--s1) 62%, #fff), var(--s1)); }
 .soft .legend i.s2 { background: linear-gradient(180deg, color-mix(in srgb, var(--s2) 62%, #fff), var(--s2)); }
+.soft .legend i.s3 { background: linear-gradient(180deg, color-mix(in srgb, var(--s3) 62%, #fff), var(--s3)); }
 
 /* Trang chi tiết: đầu thẻ ánh màu của nhóm + vầng sáng ở góc */
 .soft .dhero { position: relative; isolation: isolate; overflow: hidden;
