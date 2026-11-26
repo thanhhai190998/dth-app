@@ -115,7 +115,8 @@
       }
       s += `<rect x="${pl + band * i}" y="${pt}" width="${band}" height="${H - pt - pb}" class="cx-hit" data-i="${i}" tabindex="0"/>`;
     });
-    el.innerHTML = `<div class="legend">${series.map(se => `<span><i class="${se.cls}"></i>${esc(se.name)}</span>`).join('')}</div>
+    // 1 series: không cần chú giải (tiêu đề thẻ đã gọi tên)
+    el.innerHTML = `${series.length > 1 ? `<div class="legend">${series.map(se => `<span><i class="${se.cls}"></i>${esc(se.name)}</span>`).join('')}</div>` : ''}
       <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(cfg.title || '')}"><defs>${series.map(se => `<linearGradient id="cxg-${se.cls}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="cxs0 ${se.cls}"/><stop offset="1" class="cxs1 ${se.cls}"/></linearGradient>`).join('')}</defs>${s}</svg>
       <div class="ttip" hidden></div>`;
     const tip = el.querySelector('.ttip');
@@ -128,6 +129,13 @@
         const val = document.createElement('b'); val.textContent = full(se.values[i]);
         const nm = document.createElement('span'); nm.textContent = se.name;
         row.append(key, val, nm); tip.appendChild(row);
+      });
+      // Số phụ (không vẽ cột): chỉ hiện trong tooltip và bảng
+      (cfg.more || []).forEach(m => {
+        const row = document.createElement('div'); row.className = 'tt-r tt-m';
+        const val = document.createElement('b'); val.textContent = full(m.values[i]);
+        const nm = document.createElement('span'); nm.textContent = m.name;
+        row.append(val, nm); tip.appendChild(row);
       });
       tip.hidden = false;
       const r = hit.getBoundingClientRect(), box = el.getBoundingClientRect();
@@ -144,8 +152,9 @@
     el.addEventListener('pointerleave', () => { tip.hidden = true; el.querySelectorAll('.cx-hit.on').forEach(x => x.classList.remove('on')); });
   }
 
-  const tableOf = cfg => `<table class="dtable"><thead><tr><th>Tháng</th>${cfg.series.map(se => `<th>${esc(se.name)}</th>`).join('')}</tr></thead>
-    <tbody>${cfg.labels.map((lb, i) => `<tr><td>${esc(cfg.titles ? cfg.titles[i] : lb)}</td>${cfg.series.map(se => `<td>${esc((cfg.full || U.int)(se.values[i]))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const tableOf = cfg => { const cols = [...cfg.series, ...(cfg.more || [])];
+    return `<table class="dtable"><thead><tr><th>Tháng</th>${cols.map(se => `<th>${esc(se.th || se.name)}</th>`).join('')}</tr></thead>
+    <tbody>${cfg.labels.map((lb, i) => `<tr><td>${esc(cfg.titles ? cfg.titles[i] : lb)}</td>${cols.map(se => `<td>${esc((cfg.full || U.int)(se.values[i]))}</td>`).join('')}</tr>`).join('')}</tbody></table>`; };
 
   function mount(root) {
     root.querySelectorAll('.chart[data-ch]').forEach(el => drawColumns(el, charts[+el.dataset.ch]));
@@ -282,6 +291,22 @@
       ]
     };
     h += card('Hoàn thành 12 tháng qua', 'chart', 'var(--g3)', done.length ? columns(cfg) : none('Chưa có transmittal hoàn thành'), done.length ? '<button class="dtbl" type="button">Bảng</button>' : '');
+
+    // Tài liệu đã xử lý: tài liệu đến của các transmittal đã hoàn thành, theo tháng hoàn thành (cùng bộ lọc gói / thời gian như trên)
+    if (can('Document_no_In')) {
+      const nDoc = new Map();
+      DB.rows('Document_no_In').forEach(d => { const k = String(d.id_transmittal || ''); nDoc.set(k, (nDoc.get(k) || 0) + 1); });
+      const inM = m => done.filter(r => U.month(r.Ngay_hoan_thanh) === m);
+      const docV = last12.map(m => inM(m).reduce((s, r) => s + (nDoc.get(String(r.id)) || 0), 0));
+      const docN = docV.reduce((a, b) => a + b, 0);
+      const dcfg = {
+        title: 'Tài liệu đã xử lý theo tháng', labels: last12.map(mLabel), titles: last12.map(m => 'Tháng ' + m.slice(5) + '/' + m.slice(0, 4)), stacked: true, fmt: v => nf(v, 0), full: v => nf(v, 0),
+        series: [{ name: 'tài liệu', th: 'Tài liệu', cls: 's1', values: docV }],
+        more: [{ name: 'transmittal', th: 'Transmittal', values: last12.map(m => inM(m).length) }]
+      };
+      h += card('Tài liệu đã xử lý 12 tháng qua', 'file', 'var(--g2)', docN ? columns(dcfg) : none('Chưa có tài liệu nào được xử lý'),
+        docN ? `<span class="cnt" title="Tổng số tài liệu đã xử lý trong 12 tháng">${nf(docN, 0)}</span><button class="dtbl" type="button">Bảng</button>` : '');
+    }
 
     if (st.g === '*' && goiAll.length) {
       const byG = goiAll.map(g => ({ label: g, value: pending.filter(r => r.Goi_thau === g).length, href: '#/i/Cong_viec?Goi_thau=' + encodeURIComponent(g) + '&Status=' + encodeURIComponent('Đang xử lý'), goi: g })).filter(x => x.value);
