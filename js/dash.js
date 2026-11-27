@@ -106,10 +106,10 @@
           s += `<path d="${top(x, y, bw, yv(0) - y, 4)}" class="cx-bar ${se.cls}"/>`;
         }
       });
-      const step = n > 8 ? 2 : 1;
+      const step = n > 8 && !cfg.cat ? 2 : 1;   // cfg.cat: trục phân loại (gói…) → ghi mọi nhãn + số trên mọi cột
       if ((n - 1 - i) % step === 0) s += `<text x="${pl + band * i + band / 2}" y="${H - 6}" class="cx-tick" text-anchor="middle">${esc(lb)}</text>`;
-      // Nhãn giá trị chỉ cho tháng gần nhất (không ghi số lên mọi cột)
-      if (i === n - 1 && totals[i] > 0) {
+      // Nhãn giá trị chỉ cho tháng gần nhất (không ghi số lên mọi cột); trục phân loại thì ghi mọi cột
+      if ((cfg.cat || i === n - 1) && totals[i] > 0) {
         if (stacked) s += `<text x="${x0 + bw / 2}" y="${yv(totals[i]) - 6}" class="cx-val" text-anchor="middle">${esc(fmt(totals[i]))}</text>`;
         // Cột nhóm: nhãn đè nhau thì bỏ sau khi vẽ (xem bằng tooltip / Bảng)
         else series.forEach((se, j) => { if (se.values[i]) s += `<text x="${x0 + j * (bw + 2) + bw / 2}" y="${yv(se.values[i]) - 6}" class="cx-val" text-anchor="middle">${esc(fmt(se.values[i]))}</text>`; });
@@ -141,6 +141,7 @@
         const nm = document.createElement('span'); nm.textContent = m.name;
         row.append(val, nm); tip.appendChild(row);
       });
+      if (cfg.hrefs && cfg.hrefs[i]) { const g = document.createElement('div'); g.className = 'tt-go'; g.textContent = 'Bấm để xem danh sách'; tip.appendChild(g); }
       tip.hidden = false;
       const r = hit.getBoundingClientRect(), box = el.getBoundingClientRect();
       const x = Math.min(Math.max(r.left - box.left + r.width / 2 - tip.offsetWidth / 2, 0), box.width - tip.offsetWidth);
@@ -149,16 +150,21 @@
     };
     el.querySelectorAll('.cx-hit').forEach(hit => {
       const i = +hit.dataset.i;
-      hit.addEventListener('pointerenter', () => show(hit, i));
+      // cfg.hrefs: bấm cột mở danh sách; điện thoại chạm lần 1 xem số, chạm lần 2 mới mở
+      hit.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') show(hit, i); });
+      hit.addEventListener('pointerdown', e => { hit._tap = e.pointerType === 'touch' && !hit.classList.contains('on'); });
       hit.addEventListener('focus', () => show(hit, i));
-      hit.addEventListener('click', () => show(hit, i));
+      hit.addEventListener('keydown', e => { if (e.key === 'Enter' && cfg.hrefs && cfg.hrefs[i]) location.hash = cfg.hrefs[i]; });
+      hit.addEventListener('click', () => { if (cfg.hrefs && cfg.hrefs[i] && !hit._tap) location.hash = cfg.hrefs[i]; else show(hit, i); hit._tap = false; });
     });
     el.addEventListener('pointerleave', () => { tip.hidden = true; el.querySelectorAll('.cx-hit.on').forEach(x => x.classList.remove('on')); });
   }
 
   const tableOf = cfg => { const cols = [...cfg.series, ...(cfg.more || [])];
-    return `<table class="dtable"><thead><tr><th>Tháng</th>${cols.map(se => `<th>${esc(se.th || se.name)}</th>`).join('')}</tr></thead>
-    <tbody>${cfg.labels.map((lb, i) => `<tr><td>${esc(cfg.titles ? cfg.titles[i] : lb)}</td>${cols.map(se => `<td>${esc((cfg.full || U.int)(se.values[i]))}</td>`).join('')}</tr>`).join('')}</tbody></table>`; };
+    const f = cfg.full || U.int;
+    return `<table class="dtable"><thead><tr><th>${esc(cfg.th0 || 'Tháng')}</th>${cols.map(se => `<th>${esc(se.th || se.name)}</th>`).join('')}</tr></thead>
+    <tbody>${cfg.labels.map((lb, i) => `<tr><td>${esc(cfg.th0 || !cfg.titles ? lb : cfg.titles[i])}</td>${cols.map(se => `<td>${esc(f(se.values[i]))}</td>`).join('')}</tr>`).join('')}
+    ${cfg.cat && cfg.labels.length > 1 ? `<tr class="dt-sum"><td>Tổng</td>${cols.map(se => `<td>${esc(f(se.values.reduce((a, b) => a + b, 0)))}</td>`).join('')}</tr>` : ''}</tbody></table>`; };
 
   function mount(root) {
     root.querySelectorAll('.chart[data-ch]').forEach(el => drawColumns(el, charts[+el.dataset.ch]));
@@ -312,9 +318,25 @@
         docN ? `<span class="cnt" title="Tổng số tài liệu đã xử lý trong 12 tháng">${nf(docN, 0)}</span><button class="dtbl" type="button">Bảng</button>` : '');
     }
 
+    // Đã xử lý theo gói: số transmittal đã hoàn thành (như ô "Transmittal đã thực hiện") + số tài liệu đến của chúng
     if (st.g === '*' && goiAll.length) {
-      const byG = goiAll.map(g => ({ label: g, value: pending.filter(r => r.Goi_thau === g).length, href: '#/i/Cong_viec?Goi_thau=' + encodeURIComponent(g) + '&Status=' + encodeURIComponent('Đang xử lý'), goi: g })).filter(x => x.value);
-      h += card('Đang xử lý theo gói', 'folder', 'var(--g0)', bars(byG));
+      const docOk = can('Document_no_In'), nDoc = new Map();
+      if (docOk) DB.rows('Document_no_In').forEach(d => { const k = String(d.id_transmittal || ''); nDoc.set(k, (nDoc.get(k) || 0) + 1); });
+      const byG = goiAll.map(g => {
+        const rs = trDone.filter(r => r.Goi_thau === g);
+        return { label: g, goi: g, vals: [rs.length, rs.reduce((s, r) => s + (nDoc.get(String(r.id)) || 0), 0)],
+          href: '#/i/Cong_viec?Goi_thau=' + encodeURIComponent(g) + '&Status=' + encodeURIComponent('Hoàn thành') };
+      }).filter(x => x.vals[0]);
+      // Cột nhóm: mỗi gói 2 cột kề nhau (Transmittal · Tài liệu), chung 1 trục số lượng; bấm cột → bảng Transmittal của gói
+      const gcfg = {
+        title: 'Transmittal và tài liệu đã xử lý theo gói', labels: byG.map(x => x.label), titles: byG.map(x => 'Gói ' + x.label), th0: 'Gói',
+        fmt: v => nf(v, 0), full: v => nf(v, 0), legendSum: true, cat: true, hrefs: byG.map(x => x.href),
+        series: [{ name: 'Transmittal', cls: 's1', values: byG.map(x => x.vals[0]) }, ...(docOk ? [{ name: 'Tài liệu', cls: 's2', values: byG.map(x => x.vals[1]) }] : [])]
+      };
+      const rgTxt = Views.rangeText(st.rg);
+      h += card('Đã xử lý theo gói', 'folder', 'var(--g0)', byG.length
+        ? `<div class="dnote">Transmittal đã hoàn thành (không tính bản đã chuyển)${docOk ? ' và số tài liệu đến của chúng' : ''}${rgTxt ? ' · nhận tài liệu ' + esc(rgTxt) : ''}</div>${columns(gcfg)}`
+        : none('Chưa có transmittal nào hoàn thành'), byG.length ? '<button class="dtbl" type="button">Bảng</button>' : '');
     }
     const countBy = (rows, f) => { const m = new Map(); rows.forEach(r => { const k = f(r) || '(trống)'; m.set(k, (m.get(k) || 0) + 1); }); return [...m].map(([label, value]) => ({ label, value })); };
     const order = (rows, opts) => rows.sort((a, b) => (opts.indexOf(a.label) + 1 || 99) - (opts.indexOf(b.label) + 1 || 99));
